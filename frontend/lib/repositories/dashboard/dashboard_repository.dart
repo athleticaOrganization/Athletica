@@ -37,4 +37,56 @@ class DashboardRepository {
       throw Exception('Error creando grupo');
     }
   }
+
+  Future<List<GoalModel>> getGoals() async {
+    final response = await _dio.get('athlete/goals/');
+    return (response.data as List).map((g) => GoalModel.fromJson(g)).toList();
+  }
+
+  Future<GoalModel> createGoal({
+    required String goalType,
+    String? description,
+    double? targetValue,
+    double? currentValue,
+    String? deadline,
+  }) async {
+    final response = await _dio.post(
+      'athlete/goals/',
+      data: {
+        'goal_type': goalType,
+        'description': description ?? '',
+        'target_value': targetValue,
+        'current_value': currentValue,
+        'deadline': deadline,
+      },
+    );
+    return GoalModel.fromJson(response.data);
+  }
+
+  Future<GoalModel> updateGoal(
+    int id, {
+    String? goalType,
+    String? description,
+    double? targetValue,
+    double? currentValue,
+    String? deadline,
+    bool? isActive,
+  }) async {
+    final response = await _dio.put(
+      'athlete/goals/$id/',
+      data: {
+        if (goalType != null) 'goal_type': goalType,
+        if (description != null) 'description': description,
+        if (targetValue != null) 'target_value': targetValue,
+        if (currentValue != null) 'current_value': currentValue,
+        if (deadline != null) 'deadline': deadline,
+        if (isActive != null) 'is_active': isActive,
+      },
+    );
+    return GoalModel.fromJson(response.data);
+  }
+
+  Future<void> deleteGoal(int id) async {
+    await _dio.delete('athlete/goals/$id/');
+  }
 }
