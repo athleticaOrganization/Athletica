@@ -7,12 +7,12 @@ from .views import (
     CoachAthleteManagementView,
     CoachDashboardView,
     CustomTokenObtainPairView,
+    GoalDetailView,
+    GoalLogView,
     ProfileSettingsView,
     RegisterView,
     WeightLogView,
     protected_test,
-    GoalDetailView,
-    GoalLogView,
 )
 
 urlpatterns = [
@@ -23,9 +23,7 @@ urlpatterns = [
     path("api/users/profile/settings/", ProfileSettingsView, name="profile_settings"),
     # Coach - Athlete management
     path("api/users/athletes/search/", AthleteSearchView, name="athlete_search"),
-    path(
-        "api/users/coach/athletes/", CoachAthleteManagementView, name="coach_athletes"
-    ),
+    path("api/users/coach/athletes/", CoachAthleteManagementView, name="coach_athletes"),
     path(
         "api/users/coach/athletes/<int:athlete_id>/",
         CoachAthleteManagementView,

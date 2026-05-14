@@ -1,6 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
-from users.models import User, AthleteProfile, Goal
+
+from users.models import AthleteProfile, Goal, User
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -27,9 +28,7 @@ def other_athlete(db):
         role="athlete",
         email="atleta2@test.com",
     )
-    AthleteProfile.objects.create(
-        user=user, height=165, age=30, gender="F", activity_level="low"
-    )
+    AthleteProfile.objects.create(user=user, height=165, age=30, gender="F", activity_level="low")
     return user
 
 
@@ -137,9 +136,7 @@ def test_get_nonexistent_goal_fails(athlete_client):
 @pytest.mark.django_db
 def test_athlete_can_edit_goal(athlete_client, profile):
     """Happy path: atleta actualiza valor objetivo y fecha límite."""
-    goal = Goal.objects.create(
-        athlete=profile, goal_type="lose_weight", target_value=75.0
-    )
+    goal = Goal.objects.create(athlete=profile, goal_type="lose_weight", target_value=75.0)
     response = athlete_client.put(
         f"/api/athlete/goals/{goal.id}/",
         {
