@@ -75,12 +75,12 @@ class DashboardRepository {
     final response = await _dio.put(
       'athlete/goals/$id/',
       data: {
-        if (goalType != null) 'goal_type': goalType,
-        if (description != null) 'description': description,
-        if (targetValue != null) 'target_value': targetValue,
-        if (currentValue != null) 'current_value': currentValue,
-        if (deadline != null) 'deadline': deadline,
-        if (isActive != null) 'is_active': isActive,
+        'goal_type': goalType,
+        'description': description,
+        'target_value': targetValue,
+        'current_value': currentValue,
+        'deadline': deadline,
+        'is_active': isActive,
       },
     );
     return GoalModel.fromJson(response.data);

@@ -25,7 +25,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _age;
   double? _weight;
   double? _height;
-  String? _trainingGoal;
 
   final ProfileRepository _profileRepository = ProfileRepository();
   final DashboardViewModel _vm = DashboardViewModel();
@@ -63,7 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _age = profile.age;
         _weight = profile.weight;
         _height = profile.height;
-        _trainingGoal = profile.trainingGoal;
         _nameCtrl.text = profile.name;
         _weightCtrl.text = profile.weight?.toStringAsFixed(1) ?? '';
         _heightCtrl.text = profile.height?.toStringAsFixed(1) ?? '';
@@ -125,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _age = updated.age;
         _weight = updated.weight;
         _height = updated.height;
-        _trainingGoal = updated.trainingGoal;
+        _selectedGoal = updated.trainingGoal;
         _nameCtrl.text = updated.name;
         _weightCtrl.text = updated.weight?.toStringAsFixed(1) ?? '';
         _heightCtrl.text = updated.height?.toStringAsFixed(1) ?? '';
@@ -1198,10 +1196,11 @@ class _GoalFormDialogState extends State<_GoalFormDialog> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       debugPrint('ERROR guardando meta: $e');
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Error al guardar meta')));
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -1271,7 +1270,7 @@ class _GoalFormDialogState extends State<_GoalFormDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedGoalType,
+              initialValue: _selectedGoalType,
               decoration: _inputDec(
                 'Tipo de objetivo',
                 icon: Icons.flag_rounded,
