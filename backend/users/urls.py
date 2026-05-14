@@ -11,6 +11,8 @@ from .views import (
     RegisterView,
     WeightLogView,
     protected_test,
+    GoalDetailView,
+    GoalLogView,
 )
 
 urlpatterns = [
@@ -21,7 +23,9 @@ urlpatterns = [
     path("api/users/profile/settings/", ProfileSettingsView, name="profile_settings"),
     # Coach - Athlete management
     path("api/users/athletes/search/", AthleteSearchView, name="athlete_search"),
-    path("api/users/coach/athletes/", CoachAthleteManagementView, name="coach_athletes"),
+    path(
+        "api/users/coach/athletes/", CoachAthleteManagementView, name="coach_athletes"
+    ),
     path(
         "api/users/coach/athletes/<int:athlete_id>/",
         CoachAthleteManagementView,
@@ -30,4 +34,6 @@ urlpatterns = [
     path("api/dashboard/athlete/", AthleteDashboardView, name="athlete_dashboard"),
     path("api/dashboard/coach/", CoachDashboardView, name="coach_dashboard"),
     path("api/athlete/weight-logs/", WeightLogView, name="weight_logs"),
+    path("api/athlete/goals/", GoalLogView, name="goals"),
+    path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
 ]

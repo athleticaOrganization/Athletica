@@ -99,13 +99,16 @@ def AthleteSearchView(request):
 def CoachAthleteManagementView(request, athlete_id=None):
     """Gestiona la lista de atletas vinculados a un coach."""
     if request.user.role != "coach":
-        return Response({"detail": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"detail": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN
+        )
 
     try:
         coach_profile = CoachProfile.objects.get(user=request.user)
     except CoachProfile.DoesNotExist:
         return Response(
-            {"detail": "Perfil de entrenador no encontrado."}, status=status.HTTP_404_NOT_FOUND
+            {"detail": "Perfil de entrenador no encontrado."},
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     if request.method == "GET":
@@ -123,12 +126,16 @@ def CoachAthleteManagementView(request, athlete_id=None):
                 {"detail": "Atleta vinculado correctamente."}, status=status.HTTP_200_OK
             )
         except User.DoesNotExist:
-            return Response({"detail": "Atleta no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Atleta no encontrado."}, status=status.HTTP_404_NOT_FOUND
+            )
 
     if request.method == "DELETE":
         # Desvincular atleta
         coach_profile.athletes.remove(athlete_id)
-        return Response({"detail": "Atleta desvinculado."}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"detail": "Atleta desvinculado."}, status=status.HTTP_204_NO_CONTENT
+        )
 
 
 @api_view(["GET", "PATCH"])
@@ -156,7 +163,9 @@ def ProfileSettingsView(request):
                 if latest_weight:
                     profile_data["weight"] = latest_weight.weight
 
-                active_goal = athlete.goals.filter(is_active=True).order_by("-id").first()
+                active_goal = (
+                    athlete.goals.filter(is_active=True).order_by("-id").first()
+                )
                 if active_goal:
                     profile_data["training_goal"] = active_goal.goal_type
             except AthleteProfile.DoesNotExist:
@@ -237,7 +246,9 @@ def AthleteDashboardView(request):
     try:
         profile = AthleteProfile.objects.get(user=request.user)
     except AthleteProfile.DoesNotExist:
-        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
 
     latest_weight = WeightLog.objects.filter(athlete=profile).order_by("-date").first()
     active_goal = Goal.objects.filter(athlete=profile, is_active=True).first()
@@ -248,7 +259,9 @@ def AthleteDashboardView(request):
             "age": profile.age,
             "gender": profile.gender,
             "activity_level": profile.activity_level,
-            "latest_weight": WeightLogSerializer(latest_weight).data if latest_weight else None,
+            "latest_weight": (
+                WeightLogSerializer(latest_weight).data if latest_weight else None
+            ),
             "goal": GoalSerializer(active_goal).data if active_goal else None,
         }
     )
@@ -261,7 +274,9 @@ def WeightLogView(request):
     try:
         profile = AthleteProfile.objects.get(user=request.user)
     except AthleteProfile.DoesNotExist:
-        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
 
     if request.method == "GET":
         logs = WeightLog.objects.filter(athlete=profile).order_by("-date")
@@ -276,6 +291,63 @@ def WeightLogView(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def GoalLogView(request):
+    """Lista las metas de los atletas o agrega uno nuevo"""
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response(
+            {"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+        logs = Goal.objects.filter(athlete=profile).order_by("-start_date")
+        serializer = GoalSerializer(logs, many=True)
+        return Response(serializer.data)
+
+    elif request.method == "POST":
+        serializer = GoalSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(athlete=profile)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAuthenticated])
+def GoalDetailView(request, goal_id):
+    """Obtiene, edita o elimina una meta específica."""
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response(
+            {"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        goal = Goal.objects.get(id=goal_id, athlete=profile)
+    except Goal.DoesNotExist:
+        return Response(
+            {"detail": "Meta no encontrada."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+        return Response(GoalSerializer(goal).data)
+
+    elif request.method == "PUT":
+        serializer = GoalSerializer(goal, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == "DELETE":
+        goal.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ── Dashboard Coach ───────────────────────────────────────────────────────────
 
 
@@ -284,12 +356,16 @@ def WeightLogView(request):
 def CoachDashboardView(request):
     """Devuelve los datos del dashboard del coach autenticado."""
     if request.user.role != "coach":
-        return Response({"detail": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"detail": "Acceso denegado."}, status=status.HTTP_403_FORBIDDEN
+        )
 
     try:
         profile = CoachProfile.objects.get(user=request.user)
     except CoachProfile.DoesNotExist:
-        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
 
     from routines.models import TrainingGroup
 
