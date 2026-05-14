@@ -7,6 +7,8 @@ from .views import (
     CoachAthleteManagementView,
     CoachDashboardView,
     CustomTokenObtainPairView,
+    GoalDetailView,
+    GoalLogView,
     ProfileSettingsView,
     RegisterView,
     WeightLogView,
@@ -30,4 +32,6 @@ urlpatterns = [
     path("api/dashboard/athlete/", AthleteDashboardView, name="athlete_dashboard"),
     path("api/dashboard/coach/", CoachDashboardView, name="coach_dashboard"),
     path("api/athlete/weight-logs/", WeightLogView, name="weight_logs"),
+    path("api/athlete/goals/", GoalLogView, name="goals"),
+    path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
 ]

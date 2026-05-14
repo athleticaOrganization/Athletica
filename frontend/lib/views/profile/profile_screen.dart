@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/token_storage.dart';
 import '../../models/profile/profile_settings_model.dart';
+import '../../models/dashboard/dashboard_model.dart';
+import '../../repositories/dashboard/dashboard_repository.dart';
 import '../../repositories/profile/profile_repository.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
@@ -23,7 +25,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _age;
   double? _weight;
   double? _height;
-  String? _trainingGoal;
 
   final ProfileRepository _profileRepository = ProfileRepository();
   final DashboardViewModel _vm = DashboardViewModel();
@@ -61,14 +62,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _age = profile.age;
         _weight = profile.weight;
         _height = profile.height;
-        _trainingGoal = profile.trainingGoal;
         _nameCtrl.text = profile.name;
         _weightCtrl.text = profile.weight?.toStringAsFixed(1) ?? '';
         _heightCtrl.text = profile.height?.toStringAsFixed(1) ?? '';
         _selectedGoal = profile.trainingGoal;
         _isProfileLoading = false;
       });
-      // Cargar datos del dashboard según el rol
       if (_role == 'athlete') {
         await _vm.loadAthleteDashboard();
       } else if (_role == 'coach') {
@@ -124,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _age = updated.age;
         _weight = updated.weight;
         _height = updated.height;
-        _trainingGoal = updated.trainingGoal;
+        _selectedGoal = updated.trainingGoal;
         _nameCtrl.text = updated.name;
         _weightCtrl.text = updated.weight?.toStringAsFixed(1) ?? '';
         _heightCtrl.text = updated.height?.toStringAsFixed(1) ?? '';
@@ -144,6 +143,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _openGoalsDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => _GoalsDialog(
+        repository: _vm.repository,
+        onChanged: () async {
+          await _vm.loadAthleteDashboard();
+          if (mounted) setState(() {});
+        },
+      ),
+    );
   }
 
   void _openSettingsSheet() {
@@ -404,7 +416,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : SingleChildScrollView(
                 child: Column(
                   children: [
-                    // Header
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.only(
@@ -461,21 +472,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 24),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Datos por rol
                           if (_role == 'athlete') _buildAthleteProfile(),
                           if (_role == 'coach') _buildCoachProfile(),
-
                           const SizedBox(height: 24),
-
-                          // Configuración
                           Text(
                             'Configuracion',
                             style: AppTextStyles.fitnessBold.copyWith(
@@ -563,11 +568,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Mi objetivo',
+              style: AppTextStyles.fitnessBold.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            GestureDetector(
+              onTap: _openGoalsDialog,
+              child: Text(
+                'Ver metas',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
-        _ProfileStatCard(
-          label: 'Objetivo',
-          value: _goalLabel(_trainingGoal),
-          icon: Icons.flag_rounded,
+        GestureDetector(
+          onTap: _openGoalsDialog,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.card,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: d?.goal == null
+                ? Row(
+                    children: [
+                      Icon(
+                        Icons.flag_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Text(
+                          'Sin objetivo activo',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Icons.flag_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _goalLabel(d!.goal!.goalType),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            if (d.goal!.targetValue != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Objetivo: ${d.goal!.targetValue}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                            if (d.goal!.deadline != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Fecha límite: ${d.goal!.deadline}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
+          ),
         ),
         const SizedBox(height: 12),
         _buildOption(
@@ -575,13 +684,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: d?.latestWeight != null
               ? 'Peso reciente: ${d!.latestWeight!.weight} kg — ${d.latestWeight!.date}'
               : 'Ver historial de peso',
-          onTap: () {}, // navegar a historial de peso
+          onTap: () {},
         ),
       ],
     );
   }
 
   // ── Perfil Coach ───────────────────────────────────────────────────────────
+
   Widget _buildCoachProfile() {
     final d = _vm.coachDashboard;
     return Column(
@@ -726,8 +836,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Mapeos ─────────────────────────────────────────────────────────────────
-
   String _mapActivity(String level) {
     switch (level) {
       case 'high':
@@ -799,6 +907,480 @@ class _ProfileStatCard extends StatelessWidget {
     );
   }
 }
+
+// ── Goals Dialog ───────────────────────────────────────────────────────────
+
+class _GoalsDialog extends StatefulWidget {
+  final DashboardRepository repository;
+  final VoidCallback onChanged;
+
+  const _GoalsDialog({required this.repository, required this.onChanged});
+
+  @override
+  State<_GoalsDialog> createState() => _GoalsDialogState();
+}
+
+class _GoalsDialogState extends State<_GoalsDialog> {
+  List<GoalModel> _goals = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await widget.repository.getGoals();
+      if (mounted) setState(() => _goals = data);
+    } catch (e) {
+      debugPrint('ERROR cargando metas: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _openForm({GoalModel? goal}) {
+    showDialog(
+      context: context,
+      builder: (_) => _GoalFormDialog(
+        repository: widget.repository,
+        goal: goal,
+        onSaved: () {
+          _loadGoals();
+          widget.onChanged();
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteGoal(GoalModel goal) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar meta'),
+        content: Text('¿Eliminar "${_goalLabel(goal.goalType)}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await widget.repository.deleteGoal(goal.id);
+      _loadGoals();
+      widget.onChanged();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: SizedBox(
+        width: double.infinity,
+        height: 520,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Mis metas',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : _goals.isEmpty
+                  ? const Center(child: Text('Sin metas registradas'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _goals.length,
+                      itemBuilder: (context, index) {
+                        final goal = _goals[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.flag_rounded,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _goalLabel(goal.goalType),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (goal.targetValue != null)
+                                      Text(
+                                        'Objetivo: ${goal.targetValue}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    if (goal.deadline != null)
+                                      Text(
+                                        'Fecha límite: ${goal.deadline}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit_outlined,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                                onPressed: () => _openForm(goal: goal),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                onPressed: () => _deleteGoal(goal),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _openForm(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nueva meta'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Goal Form Dialog ───────────────────────────────────────────────────────
+
+class _GoalFormDialog extends StatefulWidget {
+  final DashboardRepository repository;
+  final GoalModel? goal;
+  final VoidCallback onSaved;
+
+  const _GoalFormDialog({
+    required this.repository,
+    this.goal,
+    required this.onSaved,
+  });
+
+  @override
+  State<_GoalFormDialog> createState() => _GoalFormDialogState();
+}
+
+class _GoalFormDialogState extends State<_GoalFormDialog> {
+  final _targetCtrl = TextEditingController();
+  final _currentCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  String? _selectedGoalType;
+  String? _selectedDeadline;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.goal != null) {
+      final g = widget.goal!;
+      _selectedGoalType = g.goalType;
+      _targetCtrl.text = g.targetValue?.toString() ?? '';
+      _currentCtrl.text = g.currentValue?.toString() ?? '';
+      _descCtrl.text = g.description;
+      _selectedDeadline = g.deadline;
+    }
+  }
+
+  @override
+  void dispose() {
+    _targetCtrl.dispose();
+    _currentCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_selectedGoalType == null) return;
+    setState(() => _isSaving = true);
+    try {
+      if (widget.goal == null) {
+        await widget.repository.createGoal(
+          goalType: _selectedGoalType!,
+          description: _descCtrl.text.trim(),
+          targetValue: double.tryParse(_targetCtrl.text),
+          currentValue: double.tryParse(_currentCtrl.text),
+          deadline: _selectedDeadline,
+        );
+      } else {
+        await widget.repository.updateGoal(
+          widget.goal!.id,
+          goalType: _selectedGoalType,
+          description: _descCtrl.text.trim(),
+          targetValue: double.tryParse(_targetCtrl.text),
+          currentValue: double.tryParse(_currentCtrl.text),
+          deadline: _selectedDeadline,
+        );
+      }
+      widget.onSaved();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint('ERROR guardando meta: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Error al guardar meta')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _pickDeadline() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDeadline =
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      });
+    }
+  }
+
+  InputDecoration _inputDec(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.primary),
+      prefixIcon: icon != null ? Icon(icon, color: AppColors.primary) : null,
+      filled: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.goal == null ? 'Nueva meta' : 'Editar meta',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedGoalType,
+              decoration: _inputDec(
+                'Tipo de objetivo',
+                icon: Icons.flag_rounded,
+              ),
+              items: _goalOptions
+                  .map(
+                    (g) =>
+                        DropdownMenuItem(value: g.value, child: Text(g.label)),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedGoalType = v),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _targetCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: _inputDec(
+                'Valor objetivo (ej: 70 kg)',
+                icon: Icons.track_changes,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _currentCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: _inputDec('Valor actual', icon: Icons.trending_up),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descCtrl,
+              decoration: _inputDec(
+                'Descripción (opcional)',
+                icon: Icons.notes,
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _pickDeadline,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedDeadline != null
+                        ? AppColors.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _selectedDeadline ?? 'Seleccionar fecha límite',
+                      style: TextStyle(
+                        color: _selectedDeadline != null
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isSaving || _selectedGoalType == null
+                    ? null
+                    : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        widget.goal == null ? 'Crear meta' : 'Guardar cambios',
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 String _goalLabel(String? goal) {
   switch (goal) {

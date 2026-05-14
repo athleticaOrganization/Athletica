@@ -105,7 +105,8 @@ def CoachAthleteManagementView(request, athlete_id=None):
         coach_profile = CoachProfile.objects.get(user=request.user)
     except CoachProfile.DoesNotExist:
         return Response(
-            {"detail": "Perfil de entrenador no encontrado."}, status=status.HTTP_404_NOT_FOUND
+            {"detail": "Perfil de entrenador no encontrado."},
+            status=status.HTTP_404_NOT_FOUND,
         )
 
     if request.method == "GET":
@@ -248,7 +249,7 @@ def AthleteDashboardView(request):
             "age": profile.age,
             "gender": profile.gender,
             "activity_level": profile.activity_level,
-            "latest_weight": WeightLogSerializer(latest_weight).data if latest_weight else None,
+            "latest_weight": (WeightLogSerializer(latest_weight).data if latest_weight else None),
             "goal": GoalSerializer(active_goal).data if active_goal else None,
         }
     )
@@ -274,6 +275,57 @@ def WeightLogView(request):
             serializer.save(athlete=profile)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def GoalLogView(request):
+    """Lista las metas de los atletas o agrega uno nuevo"""
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        logs = Goal.objects.filter(athlete=profile).order_by("-start_date")
+        serializer = GoalSerializer(logs, many=True)
+        return Response(serializer.data)
+
+    elif request.method == "POST":
+        serializer = GoalSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(athlete=profile)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAuthenticated])
+def GoalDetailView(request, goal_id):
+    """Obtiene, edita o elimina una meta específica."""
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        goal = Goal.objects.get(id=goal_id, athlete=profile)
+    except Goal.DoesNotExist:
+        return Response({"detail": "Meta no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(GoalSerializer(goal).data)
+
+    elif request.method == "PUT":
+        serializer = GoalSerializer(goal, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == "DELETE":
+        goal.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ── Dashboard Coach ───────────────────────────────────────────────────────────
