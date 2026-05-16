@@ -112,9 +112,7 @@ def test_dashboard_shows_latest_weight(coach_client, group, profile1):
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
     assert response.status_code == 200
 
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["latest_weight"]["weight"] == 78.5
 
 
@@ -124,9 +122,7 @@ def test_dashboard_athlete_with_no_weight_logs(coach_client, group, profile1):
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
     assert response.status_code == 200
 
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["latest_weight"] is None
     assert athlete_data["weight_trend"] == "no_data"
 
@@ -141,9 +137,7 @@ def test_dashboard_weight_trend_down(coach_client, group, profile1):
     WeightLog.objects.create(athlete=profile1, weight=79.0)
 
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["weight_trend"] == "down"
 
 
@@ -154,9 +148,7 @@ def test_dashboard_weight_trend_up(coach_client, group, profile1):
     WeightLog.objects.create(athlete=profile1, weight=78.0)
 
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["weight_trend"] == "up"
 
 
@@ -167,9 +159,7 @@ def test_dashboard_weight_trend_stable(coach_client, group, profile1):
     WeightLog.objects.create(athlete=profile1, weight=75.0)
 
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["weight_trend"] == "stable"
 
 
@@ -187,9 +177,7 @@ def test_dashboard_shows_active_goal(coach_client, group, profile1):
     )
 
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["active_goal"]["goal_type"] == "lose_weight"
     assert athlete_data["active_goal"]["target_value"] == 70.0
 
@@ -198,9 +186,7 @@ def test_dashboard_shows_active_goal(coach_client, group, profile1):
 def test_dashboard_athlete_with_no_active_goal(coach_client, group, profile1):
     """Flujo alternativo: atleta sin meta activa muestra active_goal null."""
     response = coach_client.get(f"/api/groups/{group.id}/dashboard/")
-    athlete_data = next(
-        a for a in response.data["athletes"] if a["id"] == profile1.user.id
-    )
+    athlete_data = next(a for a in response.data["athletes"] if a["id"] == profile1.user.id)
     assert athlete_data["active_goal"] is None
 
 

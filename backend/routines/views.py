@@ -40,9 +40,7 @@ class ExerciseViewSet(viewsets.ViewSet):  # NOSONAR
     def list(self, request):
         external_id = request.query_params.get("external_id")
         if not external_id:
-            return Response(
-                {"detail": "Missing external_id."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Missing external_id."}, status=status.HTTP_400_BAD_REQUEST)
 
         exists = Exercise.objects.filter(external_id=external_id).exists()
         return Response({"exists": exists})
@@ -107,9 +105,7 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
         """Action personalizada para añadir ejercicios a una rutina existente."""
         routine = self.get_object()
         if routine.created_by != request.user:
-            return Response(
-                {"detail": "Permiso denegado."}, status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "Permiso denegado."}, status=status.HTTP_403_FORBIDDEN)
 
         exercises_data = request.data.get("exercises", [])
         serializer = RoutineExerciseInputSerializer(data=exercises_data, many=True)
@@ -183,9 +179,7 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
         """Obtiene la rutina activa de un atleta específico."""
         routine = Routine.objects.filter(assigned_athletes__id=athlete_id).first()
         if not routine:
-            return Response(
-                {"detail": "Sin rutina asignada."}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Sin rutina asignada."}, status=status.HTTP_404_NOT_FOUND)
         return Response(RoutineDetailSerializer(routine).data)
 
     @decorators.action(
@@ -237,17 +231,13 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):  # NOSONAR
         end_param = request.query_params.get("end_date")
 
         if not (start_param and end_param):
-            return Response(
-                {"detail": "Params missing."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Params missing."}, status=status.HTTP_400_BAD_REQUEST)
 
         start_date = parse_date(start_param)
         end_date = parse_date(end_param)
 
         if not (start_date and end_date):
-            return Response(
-                {"detail": "Invalid dates."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Invalid dates."}, status=status.HTTP_400_BAD_REQUEST)
 
         sessions = (
             self.get_queryset()
@@ -276,9 +266,7 @@ class SetLogViewSet(viewsets.ModelViewSet):  # NOSONAR
         detail=False, methods=["get"], url_path="exercise/(?P<exercise_id>[^/.]+)/last"
     )
     def last_for_exercise(self, request, exercise_id=None):
-        last_log = SetLog.objects.filter(exercise_id=exercise_id).order_by(
-            "-session__date"
-        )
+        last_log = SetLog.objects.filter(exercise_id=exercise_id).order_by("-session__date")
         if not last_log.exists():
             return Response({"detail": "No records."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -336,12 +324,19 @@ def GroupDashboardView(request, group_id):
         )
 
     group = get_object_or_404(TrainingGroup, id=group_id, coach=request.user)
+    print(f">>> group_id={group_id}, grupo={group.name}, miembros={group.members.count()}")
 
     athletes_data = []
     for member in group.members.all():
+        print(f"Procesando: {member.username}")
         try:
             profile = AthleteProfile.objects.get(user=member)
+            print(f"  Profile encontrado: {profile}")
         except AthleteProfile.DoesNotExist:
+            print(f"  SIN PROFILE - saltando {member.username}")
+            continue
+        except Exception as e:
+            print(f"  ERROR inesperado: {e} para {member.username}")
             continue
 
         # Último peso y tendencia
@@ -366,9 +361,7 @@ def GroupDashboardView(request, group_id):
 
         # Meta activa
         active_goal = (
-            Goal.objects.filter(athlete=profile, is_active=True)
-            .order_by("-start_date")
-            .first()
+            Goal.objects.filter(athlete=profile, is_active=True).order_by("-start_date").first()
         )
         goal_data = None
         if active_goal:
@@ -395,11 +388,30 @@ def GroupDashboardView(request, group_id):
             }
         )
 
+    total_with_goal = sum(1 for a in athletes_data if a["active_goal"] is not None)
+    total_with_weight = sum(1 for a in athletes_data if a["latest_weight"] is not None)
+    weights = [
+        a["latest_weight"]["weight"] for a in athletes_data if a["latest_weight"] is not None
+    ]
+    avg_weight = round(sum(weights) / len(weights), 1) if weights else None
+    total_with_routine = (
+        Routine.objects.filter(assigned_athletes__in=group.members.all())
+        .values("assigned_athletes")
+        .distinct()
+        .count()
+    )
+
     return Response(
         {
             "group_id": group.id,
             "group_name": group.name,
             "total_members": len(athletes_data),
+            "group_metrics": {
+                "total_with_goal": total_with_goal,
+                "total_with_routine": total_with_routine,
+                "total_with_weight_data": total_with_weight,
+                "avg_weight": avg_weight,
+            },
             "athletes": athletes_data,
         }
     )

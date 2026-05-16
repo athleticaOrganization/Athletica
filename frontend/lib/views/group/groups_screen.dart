@@ -245,8 +245,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
     _nameController = TextEditingController(text: widget.group.name);
     _searchController = TextEditingController();
     _members = List.from(widget.group.members);
-
-    // Búsqueda en tiempo real
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -269,12 +267,10 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
       });
       return;
     }
-
     setState(() {
       _isSearching = true;
       _searchError = null;
     });
-
     try {
       final results = await widget.repo.searchAthletes(query);
       if (mounted) {
@@ -310,7 +306,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-
     setState(() => _isSaving = true);
     try {
       await widget.repo.updateGroup(
@@ -341,7 +336,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
               child: Row(
@@ -407,7 +401,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Buscador
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
@@ -451,8 +444,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
               ),
             ),
           ),
-
-          // Resultados de búsqueda
           if (_searchResults.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
@@ -540,7 +531,6 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
               ),
             ),
           ],
-
           if (_searchError != null && _searchResults.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -549,12 +539,9 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
                 style: const TextStyle(color: Colors.red, fontSize: 12),
               ),
             ),
-
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 8),
-
-          // Lista de miembros actuales
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -629,6 +616,8 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
     );
   }
 }
+
+// ── Dashboard Dialog ──────────────────────────────────────────────────────────
 
 class _GroupDashboardDialog extends StatefulWidget {
   final int groupId;
@@ -749,6 +738,93 @@ class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
               ),
             ),
             const Divider(),
+            // ── Métricas generales ─────────────────────────────────────────
+            if (_dashboard != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    _GroupMetricCard(
+                      label: 'Peso prom.',
+                      value: _dashboard!.groupMetrics.avgWeight != null
+                          ? '${_dashboard!.groupMetrics.avgWeight} kg'
+                          : 'Sin dato',
+                      icon: Icons.monitor_weight_rounded,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    _GroupMetricCard(
+                      label: 'Con rutina',
+                      value: '${_dashboard!.groupMetrics.totalWithRoutine}',
+                      icon: Icons.fitness_center_rounded,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 8),
+                    _GroupMetricCard(
+                      label: 'Con meta',
+                      value: '${_dashboard!.groupMetrics.totalWithGoal}',
+                      icon: Icons.flag_rounded,
+                      color: Colors.purple,
+                    ),
+                    const SizedBox(width: 8),
+                    _GroupMetricCard(
+                      label: 'Con peso',
+                      value: '${_dashboard!.groupMetrics.totalWithWeightData}',
+                      icon: Icons.bar_chart_rounded,
+                      color: Colors.teal,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+            // ── Tendencias ─────────────────────────────────────────────────
+            if (_dashboard != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Row(
+                  children: [
+                    _TrendSummaryCard(
+                      label: 'Bajando',
+                      count: _dashboard!.athletes
+                          .where((a) => a.weightTrend == 'down')
+                          .length,
+                      icon: Icons.trending_down_rounded,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(width: 8),
+                    _TrendSummaryCard(
+                      label: 'Subiendo',
+                      count: _dashboard!.athletes
+                          .where((a) => a.weightTrend == 'up')
+                          .length,
+                      icon: Icons.trending_up_rounded,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(width: 8),
+                    _TrendSummaryCard(
+                      label: 'Estable',
+                      count: _dashboard!.athletes
+                          .where((a) => a.weightTrend == 'stable')
+                          .length,
+                      icon: Icons.trending_flat_rounded,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    _TrendSummaryCard(
+                      label: 'Sin dato',
+                      count: _dashboard!.athletes
+                          .where((a) => a.weightTrend == 'no_data')
+                          .length,
+                      icon: Icons.remove_rounded,
+                      color: Colors.grey,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+            // ── Lista atletas ──────────────────────────────────────────────
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -773,7 +849,6 @@ class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Header atleta
                               Row(
                                 children: [
                                   CircleAvatar(
@@ -817,10 +892,8 @@ class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
                               const SizedBox(height: 10),
                               const Divider(height: 1),
                               const SizedBox(height: 10),
-                              // Métricas
                               Row(
                                 children: [
-                                  // Peso
                                   Expanded(
                                     child: _MetricTile(
                                       icon: Icons.monitor_weight_rounded,
@@ -843,7 +916,6 @@ class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  // Meta activa
                                   Expanded(
                                     child: _MetricTile(
                                       icon: Icons.flag_rounded,
@@ -881,6 +953,8 @@ class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
     );
   }
 }
+
+// ── Widgets ───────────────────────────────────────────────────────────────────
 
 class _MetricTile extends StatelessWidget {
   final IconData icon;
@@ -934,10 +1008,112 @@ class _MetricTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              ?trailing,
+              // ignore: use_null_aware_elements
+              if (trailing != null) trailing!,
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrendSummaryCard extends StatelessWidget {
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+
+  const _TrendSummaryCard({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupMetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _GroupMetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,21 +1,27 @@
+import 'package:flutter/foundation.dart';
+
 class GroupDashboardModel {
   final int groupId;
   final String groupName;
   final int totalMembers;
+  final GroupMetrics groupMetrics;
   final List<AthleteDashboardEntry> athletes;
 
   GroupDashboardModel({
     required this.groupId,
     required this.groupName,
     required this.totalMembers,
+    required this.groupMetrics,
     required this.athletes,
   });
 
   factory GroupDashboardModel.fromJson(Map<String, dynamic> json) {
+    debugPrint('fromJson athletes raw: ${(json['athletes'] as List).length}');
     return GroupDashboardModel(
       groupId: json['group_id'],
       groupName: json['group_name'],
       totalMembers: json['total_members'],
+      groupMetrics: GroupMetrics.fromJson(json['group_metrics']),
       athletes: (json['athletes'] as List)
           .map((a) => AthleteDashboardEntry.fromJson(a))
           .toList(),
@@ -114,6 +120,31 @@ class AthleteGoalEntry {
           ? (json['current_value'] as num).toDouble()
           : null,
       deadline: json['deadline'],
+    );
+  }
+}
+
+class GroupMetrics {
+  final int totalWithGoal;
+  final int totalWithRoutine;
+  final int totalWithWeightData;
+  final double? avgWeight;
+
+  GroupMetrics({
+    required this.totalWithGoal,
+    required this.totalWithRoutine,
+    required this.totalWithWeightData,
+    this.avgWeight,
+  });
+
+  factory GroupMetrics.fromJson(Map<String, dynamic> json) {
+    return GroupMetrics(
+      totalWithGoal: json['total_with_goal'],
+      totalWithRoutine: json['total_with_routine'],
+      totalWithWeightData: json['total_with_weight_data'],
+      avgWeight: json['avg_weight'] != null
+          ? (json['avg_weight'] as num).toDouble()
+          : null,
     );
   }
 }
