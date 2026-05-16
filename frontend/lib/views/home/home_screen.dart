@@ -354,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Text(
-                                "¡Listo para tu entrenamiento de hoy?",
+                                "¿Listo para tu entrenamiento de hoy?",
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.black.withValues(alpha: 0.7),

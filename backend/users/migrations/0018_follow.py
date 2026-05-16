@@ -6,22 +6,48 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0017_alter_athleteprofile_id_alter_coachprofile_id_and_more'),
+        ("users", "0017_alter_athleteprofile_id_alter_coachprofile_id_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Follow',
+            name="Follow",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('follower', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='following', to=settings.AUTH_USER_MODEL)),
-                ('following', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='followers', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "follower",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="following",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "following",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="followers",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('follower', 'following'), name='unique_follow_relationship'), models.CheckConstraint(condition=models.Q(('follower', models.F('following')), _negated=True), name='prevent_self_follow')],
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("follower", "following"), name="unique_follow_relationship"
+                    ),
+                    models.CheckConstraint(
+                        condition=models.Q(("follower", models.F("following")), _negated=True),
+                        name="prevent_self_follow",
+                    ),
+                ],
             },
         ),
     ]

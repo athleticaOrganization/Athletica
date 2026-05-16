@@ -96,14 +96,10 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
             follow_subquery = Follow.objects.filter(
                 follower_id=request.user.id, following_id=models.OuterRef("created_by_id")
             )
-            routines = routines.annotate(
-                is_followed_by_request_user=models.Exists(follow_subquery)
-            )
+            routines = routines.annotate(is_followed_by_request_user=models.Exists(follow_subquery))
         else:
             routines = routines.annotate(
-                is_followed_by_request_user=models.Value(
-                    False, output_field=models.BooleanField()
-                )
+                is_followed_by_request_user=models.Value(False, output_field=models.BooleanField())
             )
 
         serializer = self.get_serializer(routines, many=True)

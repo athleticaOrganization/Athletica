@@ -6,16 +6,16 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog, Follow
+from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
 from .serializers import (
     AthleteSearchSerializer,
+    FollowSerializer,
     GoalSerializer,
     MyTokenObtainPairSerializer,
     ProfileSettingsSerializer,
     RegisterSerializer,
     UserSerializer,
     WeightLogSerializer,
-    FollowSerializer,
 )
 
 
@@ -373,28 +373,20 @@ def followUser(request, user_id):
     try:
         user_to_follow = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Usuario no encontrado."},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     # No puede seguirse a sí mismo
     if request.user.id == user_to_follow.id:
         return Response(
-            {"detail": "No puedes seguirte a ti mismo."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"detail": "No puedes seguirte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST
         )
 
     # Evitar duplicados
-    follow, isNew = Follow.objects.get_or_create(
-        follower=request.user,
-        following=user_to_follow
-    )
+    follow, isNew = Follow.objects.get_or_create(follower=request.user, following=user_to_follow)
 
     if not isNew:
         return Response(
-            {"detail": "Ya estás siguiendo a este usuario."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"detail": "Ya estás siguiendo a este usuario."}, status=status.HTTP_400_BAD_REQUEST
         )
 
     serializer = FollowSerializer(follow)
@@ -411,24 +403,16 @@ def unfollowUser(request, user_id):
     try:
         user_to_unfollow = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Usuario no encontrado."},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
-        follow = Follow.objects.get(
-            follower=request.user,
-            following=user_to_unfollow
-        )
+        follow = Follow.objects.get(follower=request.user, following=user_to_unfollow)
     except Follow.DoesNotExist:
         return Response(
-            {"detail": "No estás siguiendo a este usuario."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"detail": "No estás siguiendo a este usuario."}, status=status.HTTP_400_BAD_REQUEST
         )
 
     follow.delete()
     return Response(
-        {"detail": "Has dejado de seguir al usuario."},
-        status=status.HTTP_204_NO_CONTENT
+        {"detail": "Has dejado de seguir al usuario."}, status=status.HTTP_204_NO_CONTENT
     )
