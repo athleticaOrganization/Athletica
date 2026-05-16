@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ExerciseRecommendationView,
     ExerciseViewSet,
+    GroupDashboardView,
     RoutineViewSet,
     SetLogViewSet,
     TrainingGroupViewSet,
@@ -17,6 +18,7 @@ router.register(r"api/sets", SetLogViewSet, basename="set")
 router.register(r"api/exercises", ExerciseViewSet, basename="exercise")
 router.register(r"api/groups", TrainingGroupViewSet, basename="group")
 
+
 urlpatterns = [
     path(
         "api/routines/recommendations/",
@@ -29,5 +31,10 @@ urlpatterns = [
         "api/athletes/<int:athlete_id>/routine/",
         RoutineViewSet.as_view({"get": "active_routine"}),
         name="athlete-active-routine",
+    ),
+    path(
+        "api/groups/<int:group_id>/dashboard/",
+        GroupDashboardView,
+        name="group_dashboard",
     ),
 ]
