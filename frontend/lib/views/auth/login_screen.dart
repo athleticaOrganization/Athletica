@@ -77,6 +77,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _forgotPassword() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'RECUPERAR CONTRASEÑA',
+          style: AppTextStyles.fitnessBold.copyWith(
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        content: Text(
+          'Se ha enviado un enlace de recuperación a tu correo electrónico registrado.',
+          style: AppTextStyles.bodyText1.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'ENTENDIDO',
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,6 +232,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
                         ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _forgotPassword,
+                            child: Text(
+                              '¿Olvidaste tu contraseña?',
+                              style: TextStyle(
+                                color: AppColors.primary.withValues(alpha: 0.8),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+
                         const SizedBox(height: 48),
                         SizedBox(
                           width: double.infinity,

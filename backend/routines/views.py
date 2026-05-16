@@ -3,12 +3,16 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import decorators, status, viewsets
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from users.models import User
+from users.models import AthleteProfile, User
 
+from .ai_service import generate_exercise_recommendations
 from .models import Exercise, Routine, RoutineExercise, SetLog, TrainingGroup, WorkoutSession
+from .serializers.serializer_recommendation import RecommendationResponseSerializer
 from .serializers.serializer_routine import (
     RoutineCreateSerializer,
     RoutineDetailSerializer,
@@ -232,8 +236,6 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):  # NOSONAR
             .select_related("routine")
         )
 
-        from rest_framework.pagination import PageNumberPagination
-
         class CustomPagination(PageNumberPagination):
             page_size_query_param = "page_size"
 
@@ -296,3 +298,60 @@ class TrainingGroupViewSet(viewsets.ModelViewSet):  # NOSONAR
         super().initial(request, *args, **kwargs)
         if request.user.role != "coach":
             raise PermissionDenied("Solo los coaches pueden gestionar grupos.")
+
+
+class ExerciseRecommendationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        try:
+            profile = user.athleteprofile
+        except AthleteProfile.DoesNotExist:
+            return Response(
+                {"detail": "User must be an athlete with a profile to get recommendations."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get history
+        history = WorkoutSession.objects.filter(user=user).order_by("-date")[:5]
+
+        # Get all exercises to choose from
+        available_exercises = Exercise.objects.all()
+        if not available_exercises.exists():
+            return Response(
+                {"detail": "No exercises available in database."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Call AI Service
+        ai_recommendations = generate_exercise_recommendations(
+            profile, history, available_exercises
+        )
+        print(f"DEBUG: AI recommendations raw: {ai_recommendations}")
+
+        # Enrich with DB data (IDs, URLs)
+        enriched_data = []
+        for item in ai_recommendations:
+            exercise_name = item.get("exercise_name")
+            db_ex = Exercise.objects.filter(name__icontains=exercise_name).first()
+            enriched_data.append(
+                {
+                    "exercise_name": exercise_name,
+                    "reason": item.get("reason"),
+                    "image_url": db_ex.image_url if db_ex else "",
+                    "exercise_id": db_ex.id if db_ex else None,
+                    "muscle": db_ex.muscle if db_ex else "General",
+                    "sets": item.get("sets", 3),
+                    "reps": item.get("reps", "12"),
+                    "rest": item.get("rest", 60),
+                    "instructions": item.get("instructions", ""),
+                    "youtube_id": item.get("youtube_id", ""),
+                }
+            )
+
+        response_data = {"recommendations": enriched_data, "generated_at": timezone.now()}
+
+        serializer = RecommendationResponseSerializer(data=response_data)
+        if serializer.is_valid():
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

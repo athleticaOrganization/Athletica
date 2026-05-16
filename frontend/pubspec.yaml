@@ -47,6 +47,9 @@ dependencies:
   # Internationalization for date formatting
   intl: ^0.20.2
   translator: ^1.0.4+1
+  lottie: ^3.3.3
+  url_launcher: ^6.3.2
+  youtube_player_iframe: ^6.0.0
 
 dev_dependencies:
   flutter_test:
