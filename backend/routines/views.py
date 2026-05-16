@@ -470,7 +470,6 @@ class ExerciseRecommendationView(APIView):
 
         response_data = {"recommendations": enriched_data, "generated_at": timezone.now()}
 
-        serializer = RecommendationResponseSerializer(data=response_data)
-        if serializer.is_valid():
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Usamos el serializador para formatear la salida correctamente
+        serializer = RecommendationResponseSerializer(response_data)
+        return Response(serializer.data)
