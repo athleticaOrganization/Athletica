@@ -103,19 +103,16 @@ class CommunityScreenState extends State<CommunityScreen> {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final routine = viewModel.publicRoutines[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: _PublicRoutineCard(
-              routine: routine,
-              onTapTitle: () => _showRoutineDetails(context, routine),
-            ),
-          );
-        },
-        childCount: viewModel.publicRoutines.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final routine = viewModel.publicRoutines[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: _PublicRoutineCard(
+            routine: routine,
+            onTapTitle: () => _showRoutineDetails(context, routine),
+          ),
+        );
+      }, childCount: viewModel.publicRoutines.length),
     );
   }
 
@@ -205,8 +202,14 @@ class CommunityScreenState extends State<CommunityScreen> {
                         spacing: AppSpacing.sm,
                         runSpacing: AppSpacing.sm,
                         children: [
-                          _InfoChip(icon: Icons.category_rounded, label: routine.category),
-                          _InfoChip(icon: Icons.speed_rounded, label: routine.difficulty),
+                          _InfoChip(
+                            icon: Icons.category_rounded,
+                            label: routine.category,
+                          ),
+                          _InfoChip(
+                            icon: Icons.speed_rounded,
+                            label: routine.difficulty,
+                          ),
                           _InfoChip(
                             icon: Icons.fitness_center_rounded,
                             label: '${routine.exercises.length} ejercicios',
@@ -217,10 +220,7 @@ class CommunityScreenState extends State<CommunityScreen> {
                         const SizedBox(height: AppSpacing.lg),
                         _SectionTitle('Descripción'),
                         const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          description,
-                          style: AppTextStyles.bodyText1,
-                        ),
+                        Text(description, style: AppTextStyles.bodyText1),
                       ],
                       const SizedBox(height: AppSpacing.lg),
                       _SectionTitle('Ejercicios'),
@@ -230,7 +230,9 @@ class CommunityScreenState extends State<CommunityScreen> {
                       else
                         ...routine.exercises.map(
                           (exercise) => Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
                             child: _ExerciseDetailTile(exercise: exercise),
                           ),
                         ),
@@ -387,7 +389,6 @@ class _PublicRoutineCard extends StatelessWidget {
   }
 }
 
-
 // ─────────────────────────────────────────────
 //  AUTHOR AVATAR
 // ─────────────────────────────────────────────
@@ -418,7 +419,6 @@ class _AuthorAvatar extends StatelessWidget {
     );
   }
 }
-
 
 class _SectionTitle extends StatelessWidget {
   final String title;
@@ -522,10 +522,7 @@ class _ExerciseDetailTile extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(
-              exercise.exercise.name,
-              style: AppTextStyles.bodyText1,
-            ),
+            child: Text(exercise.exercise.name, style: AppTextStyles.bodyText1),
           ),
         ],
       ),

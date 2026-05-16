@@ -154,10 +154,10 @@ class _NewRoutineScreenState extends State<NewRoutineScreen> {
                     isPublic: _isPublic,
                     onIsPublicChanged: (v) => setState(() => _isPublic = v),
                     onCategoryChanged: (value) =>
-                      setState(() => _selectedCategory = value),
+                        setState(() => _selectedCategory = value),
                     onDifficultyChanged: (value) =>
-                      setState(() => _selectedDifficulty = value),
-                    ),
+                        setState(() => _selectedDifficulty = value),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   // Exercise Section
                   _ExerciseListSection(

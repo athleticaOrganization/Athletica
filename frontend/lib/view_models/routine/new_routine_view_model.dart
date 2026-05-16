@@ -35,7 +35,6 @@ class RoutineViewModel {
       difficulty: difficulty,
       isPublic: isPublic,
       exercises: exercises,
-    
     );
 
     // Persistimos la rutina a través de la capa de repositorio.

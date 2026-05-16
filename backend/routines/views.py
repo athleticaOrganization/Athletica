@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import decorators, status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from users.models import User
@@ -77,7 +77,9 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
             )
         return super().destroy(request, *args, **kwargs)
 
-    @decorators.action(detail=False, methods=["get"], url_path="public", permission_classes=[AllowAny])
+    @decorators.action(
+        detail=False, methods=["get"], url_path="public", permission_classes=[AllowAny]
+    )
     def get_public_routines(self, request):
         """Lista todas las rutinas públicas.
 

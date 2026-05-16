@@ -119,7 +119,9 @@ class RoutineRepository {
         return routines;
       }
 
-      throw Exception('Fallo al recuperar las rutinas públicas. Status Code: ${response.statusCode}');
+      throw Exception(
+        'Fallo al recuperar las rutinas públicas. Status Code: ${response.statusCode}',
+      );
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         throw Exception(
@@ -236,6 +238,4 @@ class RoutineRepository {
       throw Exception('Error al asignar rutina: ${e.message}');
     }
   }
-
-
 }

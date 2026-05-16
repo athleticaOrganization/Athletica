@@ -92,7 +92,7 @@ class RoutineExercise(models.Model):
         related_name="routine_exercises",
     )
     order = models.PositiveIntegerField()
-    # number_sets 
+    # number_sets
 
     class Meta:
         ordering = ["order"]
