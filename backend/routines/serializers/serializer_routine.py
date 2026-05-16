@@ -1,8 +1,6 @@
 from rest_framework import serializers
 
 from routines.models import Exercise, Routine, RoutineExercise
-
-# from users.models import User
 from routines.serializers.serializers_exercise import ExerciseSerializer
 
 
@@ -31,7 +29,7 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Routine
-        fields = ["id", "title", "description", "category", "difficulty", "exercises"]
+        fields = ["id", "title", "description", "category", "difficulty", "is_public", "exercises"]
 
     def validate_exercises(self, exercises):
         """Verifica que no vengan dos ejercicios con el mismo orden."""
@@ -47,7 +45,6 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
         """Valida que el usuario autenticado no tenga otra rutina con el mismo título."""
         request = self.context.get("request")
         user = getattr(request, "user", None)
-        # user = User.objects.get(username='daniela')
         title = data.get("title")
         if user and title:
             qs = Routine.objects.filter(title=title, created_by=user)
@@ -75,7 +72,7 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
 
         if not user:
-            raise serializers.ValidationError("Authentication required to create a routine.")
+            raise serializers.ValidationError("Autenticación requerida para crear una rutina.")
 
         # Pop created_by if it was passed from perform_create to avoid duplicate argument error
         created_by = validated_data.pop("created_by", user)
@@ -117,6 +114,7 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "difficulty",
+            "is_public",
             "created_by",
             "creator_name",
             "exercises",

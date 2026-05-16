@@ -19,6 +19,9 @@ class RoutineModel {
   /// Nivel de dificultad estimado (ej. "Principiante").
   final String difficulty;
 
+  /// Visibilidad de la rutina, indica si rutina es publica o no
+  final bool isPublic;
+
   /// ID del usuario que creó la rutina (gestionado por el backend).
   final int? createdBy;
 
@@ -43,6 +46,7 @@ class RoutineModel {
     required this.description,
     required this.category,
     required this.difficulty,
+    required this.isPublic,
     this.createdBy,
     this.creatorName,
     this.assignedAthletes,
@@ -58,6 +62,7 @@ class RoutineModel {
     description: json['description'] ?? '',
     category: json['category'],
     difficulty: json['difficulty'],
+    isPublic: json['is_public'] ?? true,
     createdBy: json['created_by'],
     creatorName: json['creator_name'],
     assignedAthletes: (json['assigned_athletes'] != null)
@@ -80,6 +85,7 @@ class RoutineModel {
     'description': description,
     'category': category,
     'difficulty': difficulty,
+    'is_public': isPublic,
     'exercises': exercises.map((e) => e.toJson()).toList(),
   };
 }

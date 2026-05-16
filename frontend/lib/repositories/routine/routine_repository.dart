@@ -102,6 +102,36 @@ class RoutineRepository {
     }
   }
 
+  /// Obtiene el listado de rutinas públicas disponibles para la comunidad.
+  Future<List<RoutineModel>> fetchPublicRoutines() async {
+    try {
+      final response = await _dio.get('routines/public/');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        final routines = data.map((e) => RoutineModel.fromJson(e)).toList();
+
+        for (var routine in routines) {
+          await _translateExercises(
+            routine.exercises.map((re) => re.exercise).toList(),
+          );
+        }
+
+        return routines;
+      }
+
+      throw Exception(
+        'Fallo al recuperar las rutinas públicas. Status Code: ${response.statusCode}',
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception(
+          'No tienes permiso para ver las rutinas públicas. Por favor, inicia sesión de nuevo.',
+        );
+      }
+      throw Exception('Error al conectar con el servidor: ${e.message}');
+    }
+  }
+
   /// Helper para traducir una lista de ejercicios.
   Future<void> _translateExercises(List<ExerciseModel> exercises) async {
     await Future.wait(

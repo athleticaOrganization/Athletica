@@ -13,6 +13,7 @@ import '../../core/token_storage.dart';
 import '../../core/api_client.dart';
 import 'notifications/notifications_screen.dart';
 import '../../models/notification/notification_model.dart';
+import 'community/athlete_community_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -31,6 +32,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final GlobalKey<RoutinesListScreenState> _routinesKey = GlobalKey();
   final GlobalKey<CoachAthletesScreenState> _coachAthletesKey = GlobalKey();
+  final GlobalKey<CommunityScreenState> _communityKey = GlobalKey();
 
   @override
   void initState() {
@@ -181,7 +183,8 @@ class _MainScreenState extends State<MainScreen> {
     if (_userRole == 'coach') {
       return CoachAthletesScreen(key: _coachAthletesKey);
     }
-    return const Center(child: Text('Comunidad'));
+
+    return CommunityScreen(key: _communityKey);
   }
 
   @override
@@ -260,6 +263,8 @@ class _MainScreenState extends State<MainScreen> {
             _routinesKey.currentState?.refresh();
           } else if (index == 3 && _userRole == 'coach') {
             _coachAthletesKey.currentState?.refresh();
+          } else if (index == 3 && _userRole == 'athlete') {
+            _communityKey.currentState?.refresh();
           }
         }
       },

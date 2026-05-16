@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import decorators, status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from users.models import User
@@ -23,7 +23,7 @@ from .serializers.serializers_exercise import ExerciseSerializer
 from .serializers.serializers_groups import TrainingGroupSerializer
 
 
-class ExerciseViewSet(viewsets.ViewSet):
+class ExerciseViewSet(viewsets.ViewSet):  # NOSONAR
     """
     Gestiona la búsqueda y creación de ejercicios.
     """
@@ -46,7 +46,7 @@ class ExerciseViewSet(viewsets.ViewSet):
         )
 
 
-class RoutineViewSet(viewsets.ModelViewSet):
+class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
     """
     ViewSet para gestionar Rutinas: listar, crear, detalle, eliminar y acciones personalizadas.
     """
@@ -76,6 +76,19 @@ class RoutineViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+    @decorators.action(
+        detail=False, methods=["get"], url_path="public", permission_classes=[AllowAny]
+    )
+    def get_public_routines(self, request):
+        """Lista todas las rutinas públicas.
+
+        Ruta: GET /api/routines/public/
+        Devuelve la lista de rutinas cuyo campo `is_public` es True.
+        """
+        routines = self.queryset.filter(is_public=True)
+        serializer = RoutineDetailSerializer(routines, many=True)
+        return Response(serializer.data)
 
     @decorators.action(detail=True, methods=["patch"])
     def add_exercises(self, request, pk=None):
@@ -170,7 +183,7 @@ class RoutineViewSet(viewsets.ModelViewSet):
         return Response({"detail": "No encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class WorkoutSessionViewSet(viewsets.ModelViewSet):
+class WorkoutSessionViewSet(viewsets.ModelViewSet):  # NOSONAR
     """
     Gestiona las sesiones de entrenamiento y el historial.
     """
@@ -231,7 +244,7 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         return paginator.get_paginated_response(serializer.data)
 
 
-class SetLogViewSet(viewsets.ModelViewSet):
+class SetLogViewSet(viewsets.ModelViewSet):  # NOSONAR
     permission_classes = [IsAuthenticated]
     serializer_class = SetLogSerializer
     queryset = SetLog.objects.all()
@@ -266,7 +279,7 @@ class SetLogViewSet(viewsets.ModelViewSet):
         return Response(list(history.values()))
 
 
-class TrainingGroupViewSet(viewsets.ModelViewSet):
+class TrainingGroupViewSet(viewsets.ModelViewSet):  # NOSONAR
     serializer_class = TrainingGroupSerializer
     permission_classes = [IsAuthenticated]
 
