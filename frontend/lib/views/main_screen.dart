@@ -25,6 +25,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _homeRefreshTick = 0;
+  int _profileRefreshTick = 0;
   int? _athleteId;
   String? _userRole;
   Timer? _pollingTimer;
@@ -163,7 +164,7 @@ class _MainScreenState extends State<MainScreen> {
     RoutinesListScreen(key: _routinesKey),
     _buildNutritionScreen(),
     _buildCommunityOrAthletesScreen(),
-    const ProfileScreen(),
+    ProfileScreen(refreshTick: _profileRefreshTick),
   ];
 
   Widget _buildNutritionScreen() {
@@ -256,6 +257,9 @@ class _MainScreenState extends State<MainScreen> {
             _currentIndex = index;
             if (index == 0) {
               _homeRefreshTick++;
+            }
+            if (index == 4) {
+              _profileRefreshTick++;
             }
           });
           // Refresh logic when switching tabs

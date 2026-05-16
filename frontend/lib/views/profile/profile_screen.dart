@@ -13,13 +13,16 @@ import '../auth/login_screen.dart';
 import '../group/groups_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final int refreshTick;
+
+  const ProfileScreen({super.key, this.refreshTick = 0});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  int _lastRefreshTick = 0;
   String _userName = '';
   String _role = 'athlete';
   int? _age;
@@ -40,7 +43,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _lastRefreshTick = widget.refreshTick;
     _loadProfileSettings();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTick != _lastRefreshTick) {
+      _lastRefreshTick = widget.refreshTick;
+      _loadProfileSettings();
+    }
   }
 
   @override
@@ -406,11 +419,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final nameDisplay = _userName.isNotEmpty ? _userName : 'Usuario';
     final followersCount = _role == 'athlete'
-      ? (_vm.athleteDashboard?.followersCount ?? 0)
-      : (_vm.coachDashboard?.followersCount ?? 0);
+        ? (_vm.athleteDashboard?.followersCount ?? 0)
+        : (_vm.coachDashboard?.followersCount ?? 0);
     final followingCount = _role == 'athlete'
-      ? (_vm.athleteDashboard?.followingCount ?? 0)
-      : (_vm.coachDashboard?.followingCount ?? 0);
+        ? (_vm.athleteDashboard?.followingCount ?? 0)
+        : (_vm.coachDashboard?.followingCount ?? 0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
