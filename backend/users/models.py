@@ -70,7 +70,9 @@ class CoachProfile(Profile):
     speciality = models.CharField(max_length=255, choices=SPECIALITY_CHOICES)
     years_experience = models.IntegerField()
     # Lista de atletas vinculados al coach (independiente de los grupos)
-    athletes = models.ManyToManyField(User, related_name="managed_by_coaches", blank=True)
+    athletes = models.ManyToManyField(
+        User, related_name="managed_by_coaches", blank=True
+    )
 
     def __str__(self):
         return f"{self.user.username} — {self.speciality}"
@@ -89,7 +91,9 @@ class Goal(models.Model):
     goal_type = models.CharField(max_length=20, choices=GOAL_CHOICES)
 
     # Relación con el atleta dueño de la meta.
-    athlete = models.ForeignKey(AthleteProfile, on_delete=models.CASCADE, related_name="goals")
+    athlete = models.ForeignKey(
+        AthleteProfile, on_delete=models.CASCADE, related_name="goals"
+    )
 
     description = models.TextField(blank=True, default="")
 
@@ -112,7 +116,9 @@ class Goal(models.Model):
 # Registro histórico del peso de un atleta.
 # Permite hacer seguimiento de la evolución física a lo largo del tiempo.
 class WeightLog(models.Model):
-    athlete = models.ForeignKey(AthleteProfile, on_delete=models.CASCADE, related_name="weight")
+    athlete = models.ForeignKey(
+        AthleteProfile, on_delete=models.CASCADE, related_name="weight"
+    )
     weight = models.FloatField()
 
     # Porcentaje de grasa corporal — opcional, no siempre se registra.

@@ -4,6 +4,7 @@ import '../../models/group/member_model.dart';
 import '../../repositories/group/group_repository.dart';
 import '../../theme/app_colors.dart';
 import '../group/create_group_screen.dart';
+import '../../models/group/group_dashboard_model.dart';
 
 class MyGroupsScreen extends StatefulWidget {
   const MyGroupsScreen({super.key});
@@ -114,11 +115,29 @@ class _MyGroupsScreenState extends State<MyGroupsScreen> {
 
 // ── Tab content ───────────────────────────────────────────────────────────────
 
-class _GroupTabContent extends StatelessWidget {
+class _GroupTabContent extends StatefulWidget {
   final GroupModel group;
   final VoidCallback onManage;
 
   const _GroupTabContent({required this.group, required this.onManage});
+
+  @override
+  State<_GroupTabContent> createState() => _GroupTabContentState();
+}
+
+class _GroupTabContentState extends State<_GroupTabContent> {
+  final GroupRepository _repo = GroupRepository();
+
+  void _openDashboard() {
+    showDialog(
+      context: context,
+      builder: (_) => _GroupDashboardDialog(
+        groupId: widget.group.id,
+        groupName: widget.group.name,
+        repo: _repo,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,29 +149,43 @@ class _GroupTabContent extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${group.members.length} atleta${group.members.length == 1 ? '' : 's'}',
+                '${widget.group.members.length} atleta${widget.group.members.length == 1 ? '' : 's'}',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
-              FilledButton(
-                onPressed: onManage,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                ),
-                child: const Text('Gestionar'),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _openDashboard,
+                    icon: const Icon(Icons.bar_chart_rounded, size: 16),
+                    label: const Text('Tablero'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: widget.onManage,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                    child: const Text('Gestionar'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
         const Divider(height: 1),
         Expanded(
-          child: group.members.isEmpty
+          child: widget.group.members.isEmpty
               ? const Center(child: Text('Sin atletas en este grupo'))
               : ListView.builder(
-                  itemCount: group.members.length,
+                  itemCount: widget.group.members.length,
                   itemBuilder: (context, index) {
-                    final member = group.members[index];
+                    final member = widget.group.members[index];
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: AppColors.primary.withValues(
@@ -592,6 +625,319 @@ class _ManageGroupDialogState extends State<_ManageGroupDialog>
             borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _GroupDashboardDialog extends StatefulWidget {
+  final int groupId;
+  final String groupName;
+  final GroupRepository repo;
+
+  const _GroupDashboardDialog({
+    required this.groupId,
+    required this.groupName,
+    required this.repo,
+  });
+
+  @override
+  State<_GroupDashboardDialog> createState() => _GroupDashboardDialogState();
+}
+
+class _GroupDashboardDialogState extends State<_GroupDashboardDialog> {
+  GroupDashboardModel? _dashboard;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await widget.repo.getGroupDashboard(widget.groupId);
+      if (mounted) setState(() => _dashboard = data);
+    } catch (e) {
+      debugPrint('ERROR cargando tablero: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _trendIcon(String trend) {
+    switch (trend) {
+      case 'up':
+        return '↑';
+      case 'down':
+        return '↓';
+      case 'stable':
+        return '→';
+      default:
+        return '—';
+    }
+  }
+
+  Color _trendColor(String trend) {
+    switch (trend) {
+      case 'up':
+        return Colors.red;
+      case 'down':
+        return Colors.green;
+      case 'stable':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _goalLabel(String goalType) {
+    switch (goalType) {
+      case 'lose_weight':
+        return 'Perder peso';
+      case 'gain_muscle':
+        return 'Ganar músculo';
+      case 'maintain':
+        return 'Mantener';
+      case 'endurance':
+        return 'Resistencia';
+      case 'wellness':
+        return 'Bienestar';
+      default:
+        return goalType;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 620),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tablero',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        if (_dashboard != null)
+                          Text(
+                            '${_dashboard!.totalMembers} atleta${_dashboard!.totalMembers == 1 ? '' : 's'}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : _dashboard == null || _dashboard!.athletes.isEmpty
+                  ? const Center(child: Text('Sin atletas en este grupo'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _dashboard!.athletes.length,
+                      itemBuilder: (context, index) {
+                        final athlete = _dashboard!.athletes[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header atleta
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppColors.primary
+                                        .withValues(alpha: 0.15),
+                                    child: Text(
+                                      athlete.displayName[0].toUpperCase(),
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          athlete.displayName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          athlete.email,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              const Divider(height: 1),
+                              const SizedBox(height: 10),
+                              // Métricas
+                              Row(
+                                children: [
+                                  // Peso
+                                  Expanded(
+                                    child: _MetricTile(
+                                      icon: Icons.monitor_weight_rounded,
+                                      label: 'Peso',
+                                      value: athlete.latestWeight != null
+                                          ? '${athlete.latestWeight!.weight} kg'
+                                          : 'Sin dato',
+                                      trailing: athlete.latestWeight != null
+                                          ? Text(
+                                              _trendIcon(athlete.weightTrend),
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: _trendColor(
+                                                  athlete.weightTrend,
+                                                ),
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Meta activa
+                                  Expanded(
+                                    child: _MetricTile(
+                                      icon: Icons.flag_rounded,
+                                      label: 'Objetivo',
+                                      value: athlete.activeGoal != null
+                                          ? _goalLabel(
+                                              athlete.activeGoal!.goalType,
+                                            )
+                                          : 'Sin meta',
+                                      trailing:
+                                          athlete.activeGoal?.targetValue !=
+                                              null
+                                          ? Text(
+                                              '→ ${athlete.activeGoal!.targetValue}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Widget? trailing;
+
+  const _MetricTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+        ],
       ),
     );
   }

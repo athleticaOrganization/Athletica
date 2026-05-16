@@ -53,13 +53,19 @@ class Routine(models.Model):
     is_public = models.BooleanField(default=True)
 
     # Usamos CharField con choices para validación y eficiencia
-    category = models.CharField(max_length=20, choices=Category.choices, default=Category.HYBRID)
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.HYBRID
+    )
     difficulty = models.CharField(
         max_length=20, choices=Difficulty.choices, default=Difficulty.BEGINNER
     )
 
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_routines")
-    assigned_athletes = models.ManyToManyField(User, related_name="routines", blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="created_routines"
+    )
+    assigned_athletes = models.ManyToManyField(
+        User, related_name="routines", blank=True
+    )
     exercises = models.ManyToManyField(
         Exercise,
         through="RoutineExercise",
@@ -114,14 +120,16 @@ ATRIBUTES:WorkoutSession
 
 
 class WorkoutSession(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="workout_sessions")
-    routine = models.ForeignKey(Routine, on_delete=models.CASCADE, related_name="workout_sessions")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="workout_sessions"
+    )
+    routine = models.ForeignKey(
+        Routine, on_delete=models.CASCADE, related_name="workout_sessions"
+    )
     date = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return (
-            f"{self.user.username} - {self.routine.title} ({self.date.strftime('%Y-%m-%d %H:%M')})"
-        )
+        return f"{self.user.username} - {self.routine.title} ({self.date.strftime('%Y-%m-%d %H:%M')})"
 
 
 """
@@ -135,8 +143,12 @@ ATRIBUTES:SetLog
 
 
 class SetLog(models.Model):
-    session = models.ForeignKey(WorkoutSession, on_delete=models.CASCADE, related_name="set_logs")
-    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name="set_logs")
+    session = models.ForeignKey(
+        WorkoutSession, on_delete=models.CASCADE, related_name="set_logs"
+    )
+    exercise = models.ForeignKey(
+        Exercise, on_delete=models.CASCADE, related_name="set_logs"
+    )
     set_number = models.PositiveIntegerField()
     reps = models.PositiveIntegerField()
     weight = models.DecimalField(max_digits=6, decimal_places=2)
@@ -159,8 +171,12 @@ ATRIBUTES: TrainingGroup
 
 class TrainingGroup(models.Model):
     name = models.CharField(max_length=150)
-    coach = models.ForeignKey(User, on_delete=models.CASCADE, related_name="training_groups")
-    members = models.ManyToManyField(User, related_name="training_group_memberships", blank=True)
+    coach = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="training_groups"
+    )
+    members = models.ManyToManyField(
+        User, related_name="training_group_memberships", blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
