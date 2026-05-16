@@ -405,6 +405,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final nameDisplay = _userName.isNotEmpty ? _userName : 'Usuario';
+    final followersCount = _role == 'athlete'
+      ? (_vm.athleteDashboard?.followersCount ?? 0)
+      : (_vm.coachDashboard?.followersCount ?? 0);
+    final followingCount = _role == 'athlete'
+      ? (_vm.athleteDashboard?.followingCount ?? 0)
+      : (_vm.coachDashboard?.followingCount ?? 0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -467,6 +473,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fontSize: 13,
                               color: Colors.white70,
                               fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 330),
+                              child: _buildFollowersFollowingSection(
+                                followersCount: followersCount,
+                                followingCount: followingCount,
+                              ),
                             ),
                           ),
                         ],
@@ -832,6 +848,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFollowersFollowingSection({
+    required int followersCount,
+    required int followingCount,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFollowStatItem(
+              icon: Icons.groups_rounded,
+              label: 'Seguidores',
+              value: followersCount.toString(),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 48,
+            color: Colors.white.withValues(alpha: 0.22),
+          ),
+          Expanded(
+            child: _buildFollowStatItem(
+              icon: Icons.person_add_alt_1_rounded,
+              label: 'Siguiendo',
+              value: followingCount.toString(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFollowStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    height: 1,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

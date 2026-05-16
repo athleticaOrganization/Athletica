@@ -62,8 +62,6 @@ class UserSerializer(serializers.ModelSerializer):
     athlete_profile = AthleteProfileSerializer(read_only=True)
     coach_profile = CoachProfileSerializer(read_only=True)
     is_following = serializers.SerializerMethodField()
-    followers_count = serializers.SerializerMethodField()
-    following_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -80,8 +78,6 @@ class UserSerializer(serializers.ModelSerializer):
             "athlete_profile",
             "coach_profile",
             "is_following",
-            "followers_count",
-            "following_count",
         ]
 
     def get_is_following(self, obj):
@@ -97,14 +93,6 @@ class UserSerializer(serializers.ModelSerializer):
             follower=request.user,
             following=obj
         ).exists()
-
-    def get_followers_count(self, obj):
-        """Cuenta de seguidores del usuario"""
-        return obj.followers.count()
-    
-    def get_followers_count(self, obj):
-        """Cuenta a cuantes personas sigue el usuario"""
-        return obj.following.count()
 
 
 class ProfileSettingsSerializer(serializers.Serializer):

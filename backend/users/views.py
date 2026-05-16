@@ -252,6 +252,8 @@ def AthleteDashboardView(request):
             "activity_level": profile.activity_level,
             "latest_weight": (WeightLogSerializer(latest_weight).data if latest_weight else None),
             "goal": GoalSerializer(active_goal).data if active_goal else None,
+            "followers_count": request.user.followers.count(),
+            "following_count": request.user.following.count(),
         }
     )
 
@@ -354,6 +356,8 @@ def CoachDashboardView(request):
             "speciality": profile.speciality,
             "years_experience": profile.years_experience,
             "groups": list(groups),
+            "followers_count": request.user.followers.count(),
+            "following_count": request.user.following.count(),
         }
     )
 
