@@ -115,28 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Stack(
         children: [
           // Solid Background
-          Positioned.fill(
-            child: Container(
-              color: AppColors.primary, // Naranja
-            ),
-          ),
-          // Gradient Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.2),
-                    AppColors.primary.withValues(alpha: 0.8),
-                    AppColors.background,
-                  ],
-                  stops: const [0.0, 0.4, 0.65],
-                ),
-              ),
-            ),
-          ),
+          Positioned.fill(child: Container(color: AppColors.primary)),
+
           Column(
             children: [
               // Header
@@ -159,11 +139,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'TU PROGRESO COMIENZA AQUÍ',
+                        '⚡ TU PROGRESO COMIENZA AQUÍ',
                         style: AppTextStyles.fitnessCaption.copyWith(
                           color: Colors.white,
                           fontSize: 10,

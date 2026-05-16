@@ -57,12 +57,19 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isAiLoading = true;
   List<ExerciseRecommendation> _aiRecommendations = [];
 
+  // Real daily stats
+  double _todayCalories = 0;
+  int _todayMinutes = 0;
+  double _userWeightKg = 0;
+
   @override
   void initState() {
     super.initState();
     _loadUserName();
     _loadCalendarActivity();
     _loadAiRecommendations();
+    _loadDailyStats();
+    _loadUserWeight();
   }
 
   @override
@@ -129,6 +136,16 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _calendarActivity = byDay;
           _isCalendarLoading = false;
+          // Compute today's workout minutes from today's sessions
+          final todayKey = _formatDate(DateTime.now());
+          _todayMinutes =
+              workoutHistory.results
+                  .where(
+                    (s) =>
+                        _formatDate((s.date as DateTime).toLocal()) == todayKey,
+                  )
+                  .length *
+              45; // approx 45 min per session
         });
       }
     } catch (_) {
@@ -142,6 +159,33 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadDailyStats() async {
+    try {
+      final today = _formatDate(DateTime.now());
+      final meals = await _nutritionService.getMeals(
+        date: today,
+        athleteId: widget.athleteId,
+      );
+      if (mounted) {
+        setState(() {
+          _todayCalories = meals.fold<double>(0, (s, m) => s + m.calories);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadUserWeight() async {
+    try {
+      final res = await ApiClient.dio.get('users/profile/settings/');
+      final data = res.data as Map<String, dynamic>;
+      if (mounted && data['weight'] != null) {
+        setState(() {
+          _userWeightKg = double.tryParse(data['weight'].toString()) ?? 0.0;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadAiRecommendations() async {
@@ -215,12 +259,15 @@ class _HomeScreenState extends State<HomeScreen> {
             showControls: true,
             showFullscreenButton: true,
             mute: false,
-            loop: true,
+            loop: false,
+            enableJavaScript: true,
           ),
         );
-        controller.loadVideoById(
-          videoId: rec.youtubeId.isNotEmpty ? rec.youtubeId : 'nmw6Z-q0uH8',
-        );
+
+        final videoId = rec.youtubeId.trim().isNotEmpty
+            ? rec.youtubeId.trim()
+            : 'gcNh17Ckjgg';
+        controller.loadVideoById(videoId: videoId);
 
         return Container(
           height: MediaQuery.of(context).size.height * 0.85,
@@ -518,15 +565,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("ESTADÍSTICAS DEL DÍA"),
+                  _buildSectionTitle("📊 ESTADÍSTICAS DEL DÍA"),
                   const SizedBox(height: 16),
                   _buildBentoGrid(),
                   const SizedBox(height: 32),
-                  _buildSectionTitle("CALENDARIO DE RACHA"),
+                  _buildSectionTitle("📅 CALENDARIO DE RACHA"),
                   const SizedBox(height: 16),
                   _buildStreakCalendar(),
                   const SizedBox(height: 32),
-                  _buildSectionTitle("RECOMENDACIÓN IA"),
+                  _buildSectionTitle("🎯🌟 RECOMENDACIÓN DEL DÍA"),
                   const SizedBox(height: 16),
                   _buildAiRecommendations(),
                   const SizedBox(height: 120),
@@ -729,60 +776,114 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBentoGrid() {
-    final streakValue = _currentStreakDays.toString();
+    final streak = _currentStreakDays;
 
     return Column(
       children: [
+        // ── Streak HERO (priority) ─────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF6F00), Color(0xFFFFD740)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF6F00).withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Text('🔥', style: TextStyle(fontSize: 40)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$streak ${streak == 1 ? 'día' : 'días'} de racha',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text(
+                        streak == 0
+                            ? '¡Empieza hoy tu racha!'
+                            : streak >= 7
+                            ? '¡Increíble consistencia! 💪'
+                            : '¡Sigue así, lo estás logrando!',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // ── Stats row ──────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               Expanded(
-                flex: 3,
                 child: _bentoItem(
-                  title: "CALORÍAS",
-                  value: "1,240",
-                  unit: "kcal",
+                  title: 'CALORÍAS HOY',
+                  value: _todayCalories > 0
+                      ? _todayCalories.toStringAsFixed(0)
+                      : '—',
+                  unit: _todayCalories > 0 ? 'kcal' : '',
                   icon: Icons.local_fire_department_rounded,
                   color: const Color(0xFFFF5252),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                flex: 2,
                 child: _bentoItem(
-                  title: "TIEMPO",
-                  value: "45",
-                  unit: "min",
+                  title: 'TIEMPO HOY',
+                  value: _todayMinutes > 0 ? '$_todayMinutes' : '—',
+                  unit: _todayMinutes > 0 ? 'min' : '',
                   icon: Icons.timer_rounded,
                   color: const Color(0xFF448AFF),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
+              const SizedBox(width: 12),
               Expanded(
-                flex: 2,
                 child: _bentoItem(
-                  title: "RACHAS",
-                  value: streakValue,
-                  unit: "días",
-                  icon: Icons.flash_on_rounded,
-                  color: const Color(0xFFFFD740),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: _bentoItem(
-                  title: "PESO ACTUAL",
-                  value: "78.5",
-                  unit: "kg",
-                  icon: Icons.fitness_center_rounded,
+                  title: 'PESO',
+                  value: _userWeightKg > 0
+                      ? _userWeightKg.toStringAsFixed(1)
+                      : '—',
+                  unit: _userWeightKg > 0 ? 'kg' : '',
+                  icon: Icons.monitor_weight_rounded,
                   color: const Color(0xFF64FFDA),
                 ),
               ),
@@ -1031,7 +1132,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1D1E),
                   borderRadius: AppRadius.card,
-                  boxShadow: AppColors.deepShadow,
+                  border: Border.all(
+                    color: AppColors.intensityNeon.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.intensityNeon.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                    ...AppColors.deepShadow,
+                  ],
                 ),
                 child: Stack(
                   children: [

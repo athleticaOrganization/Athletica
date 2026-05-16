@@ -2,83 +2,149 @@ import json
 import os
 
 import google.generativeai as genai
+import requests
+
+
+def _get_gemini_model():
+    """Returns a working Gemini model or None if unavailable."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "tu_api_key_de_gemini_aqui":
+        return None
+
+    genai.configure(api_key=api_key)
+
+    # Try model names without the 'models/' prefix (correct for this SDK version)
+    for model_name in ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]:
+        try:
+            model = genai.GenerativeModel(model_name)
+            # Quick smoke test to verify the model actually works
+            model.generate_content("Responde solo: ok")
+            print(f"Gemini model active: {model_name}")
+            return model
+        except Exception as e:  # nosec B112
+            print(f"Model {model_name} unavailable: {e}")
+            continue
+
+    return None
+
+
+def _search_youtube_video(exercise_name: str) -> str:
+    """
+    Searches YouTube Data API v3 for an embeddable tutorial video.
+    Returns a valid video ID or empty string.
+    """
+    api_key = os.getenv("YOUTUBE_API_KEY")
+    if not api_key:
+        return ""
+
+    query = f"{exercise_name} exercise technique tutorial"
+    url = "https://www.googleapis.com/youtube/v3/search"
+    params = {
+        "part": "snippet",
+        "q": query,
+        "type": "video",
+        "videoEmbeddable": "true",
+        "safeSearch": "strict",
+        "maxResults": 3,
+        "relevanceLanguage": "en",
+        "key": api_key,
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=5)  # nosec B113
+        data = response.json()
+        items = data.get("items", [])
+        if items:
+            video_id = items[0]["id"]["videoId"]
+            print(f"YouTube: '{exercise_name}' → {video_id}")
+            return video_id
+    except Exception as e:
+        print(f"YouTube search failed for '{exercise_name}': {e}")
+
+    return ""
+
+
+def _ai_describe_exercise(model, exercise_name: str, muscle: str) -> dict:
+    """
+    Uses Gemini to generate a specific reason and instructions for one exercise.
+    Returns dict with 'reason' and 'instructions'.
+    """
+    prompt = f"""
+    Eres un entrenador personal experto.
+    Para el ejercicio "{exercise_name}" (músculo principal: {muscle}), proporciona:
+
+    Responde ÚNICAMENTE con este JSON (sin markdown):
+    {{
+        "reason": "Beneficio biomecánico principal del ejercicio (máximo 8 palabras)",
+        "instructions": "Consejo técnico clave y específico para ejecutarlo bien (máximo 15 palabras)"
+    }}
+    """
+    try:
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text.strip())
+    except Exception:
+        return {}
 
 
 def generate_exercise_recommendations(user_profile, workout_history, available_exercises):
     """
-    Uses Gemini API to generate exercise recommendations.
+    Uses Gemini to generate exercise recommendations with real AI descriptions,
+    then enriches each one with a real YouTube video via the Data API.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or api_key == "tu_api_key_de_gemini_aqui":
-        # Fallback for development if key is missing
+    model = _get_gemini_model()
+
+    if model is None:
         return _get_mock_recommendations(available_exercises)
 
-    genai.configure(api_key=api_key)
-
-    # Correct model path for v1beta API
-    for model_name in ["models/gemini-1.5-flash", "models/gemini-pro"]:
-        try:
-            model = genai.GenerativeModel(model_name)
-            break
-        except Exception:  # nosec B112
-            continue
-
-
-    else:
-        model = genai.GenerativeModel("gemini-pro")
-
-    # Prepare data for prompt
-    profile_str = f"Age: {user_profile.age}, Height: {user_profile.height}cm, Weight: {user_profile.weight}kg, Activity Level: {user_profile.activity_level}"
-
+    # Prepare context
+    profile_str = (
+        f"Edad: {user_profile.age} años, "
+        f"Altura: {user_profile.height}cm, "
+        f"Peso: {user_profile.weight}kg, "
+        f"Nivel: {user_profile.activity_level}"
+    )
     history_str = "\n".join(
         [
-            f"- {session.routine.title} on {session.date.strftime('%Y-%m-%d')}"
+            f"- {session.routine.title} ({session.date.strftime('%d/%m/%Y')})"
             for session in workout_history[:5]
         ]
     )
-
-    # 1. Improve exercise context with muscle group
     exercises_list = ", ".join(
         [f"{ex.name} ({ex.muscle or 'General'})" for ex in available_exercises]
     )
 
-    # 2. PROMPT REFINADO
     prompt = f"""
-    Eres un entrenador personal de élite de la app Athletica.
-    Tu tarea es recomendar exactamente 3 ejercicios basados en el perfil del usuario, su historial y la lista disponible.
+    Eres un entrenador personal de élite de Athletica AI.
+    Recomienda exactamente 3 ejercicios para este usuario basándote en su perfil e historial.
 
-    [DATOS DEL USUARIO]
-    - Perfil: {profile_str}
-    - Historial Reciente: {history_str}
-    - Ejercicios Disponibles en la Base de Datos: {exercises_list}
+    Perfil: {profile_str}
+    Historial reciente: {history_str}
+    Ejercicios disponibles: {exercises_list}
 
-    [REGLAS CRÍTICAS DE EJECUCIÓN]
-    1. IDIOMA: Todo el JSON debe estar en ESPAÑOL.
-    2. VARIABILIDAD: Cada ejercicio debe tener una razón biomecánica diferente.
-    3. DETALLE TÉCNICO: Para cada ejercicio, define Series, Repeticiones (o tiempo) y Descanso (segundos) según el perfil del usuario.
-    4. BREVEDAD: La 'reason' debe ser menor a 12 palabras.
-    5. VIDEO: Para cada ejercicio, busca y proporciona un ID de video de YouTube (solo el código de 11 caracteres) que sea un tutorial técnico de alta calidad en español o inglés.
-    6. CERO TEXTO EXTRA: Devuelve ÚNICAMENTE el arreglo JSON.
+    Para cada ejercicio proporciona una razón y una instrucción técnica ESPECÍFICA y ÚNICA.
 
-    [ESQUEMA JSON REQUERIDO]
+    Devuelve ÚNICAMENTE un arreglo JSON sin ningún texto extra ni markdown:
     [
         {{
-            "exercise_name": "Nombre exacto",
-            "reason": "Razón ultra corta",
+            "exercise_name": "Nombre exacto del ejercicio de la lista disponible",
+            "reason": "Beneficio biomecánico específico para ESTE usuario (8-10 palabras)",
             "sets": 3,
-            "reps": "12" o "30s",
+            "reps": "12",
             "rest": 60,
-            "instructions": "Tip rápido de ejecución",
-            "youtube_id": "ID_DE_VIDEO"
-        }},
-        ...
+            "muscle": "Grupo muscular principal",
+            "instructions": "Consejo técnico clave y específico para este ejercicio (10-15 palabras)"
+        }}
     ]
     """
 
     try:
         response = model.generate_content(prompt)
         text = response.text.strip()
-        # Clean up possible markdown code blocks
         if text.startswith("```json"):
             text = text[7:-3].strip()
         elif text.startswith("```"):
@@ -86,81 +152,119 @@ def generate_exercise_recommendations(user_profile, workout_history, available_e
 
         recommendations = json.loads(text)
 
-        # Post-process: ensure real IDs for common exercises (case-insensitive)
-        YOUTUBE_MAP = {
-            "kettlebell swing": "ysS-SAs_X_U",
-            "jalón al pecho": "CAwf7n6Luuc",
-            "sentadilla": "gcNh17Ckjgg",
-            "aperturas posteriores": "V8dZ3pkI9XQ",
-            "press de banca": "vcBig73ojpE",
-        }
-
+        # Enrich each with a real YouTube video
         for rec in recommendations:
-            name_lower = rec["exercise_name"].lower()
-            # Try to match the name in our mapping
-            for key, val in YOUTUBE_MAP.items():
-                if key in name_lower:
-                    rec["youtube_id"] = val
-                    break
+            video_id = _search_youtube_video(rec["exercise_name"])
+            rec["youtube_id"] = (
+                video_id
+                if video_id
+                else _fallback_video(rec["exercise_name"], rec.get("muscle", ""))
+            )
 
         return recommendations
 
     except Exception as e:
         print(f"Error calling Gemini API: {e}")
-        return _get_mock_recommendations(available_exercises)
+        return _get_mock_recommendations(available_exercises, model)
 
 
-def _get_mock_recommendations(available_exercises):
-    """Fallback with high-quality verified YouTube IDs."""
-    import random
+def _fallback_video(exercise_name: str, muscle: str) -> str:
+    """Last-resort static map when YouTube API is unavailable."""
+    name_lower = exercise_name.lower()
+    muscle_lower = muscle.lower()
 
-    YOUTUBE_MAPPING = {
-        "jalón al pecho": "L815_F4fI3w",  # Official CrossFit
-        "aperturas posteriores": "nZ_7I999p_I",  # Verified technician
-        "sentadilla": "gcNh17Ckjgg",  # Squat University
-        "press de banca": "rT7DgCr-3ps",  # Rogue Fitness
-        "kettlebell swing": "ysS-SAs_X_U",  # High quality
+    NAME_MAP = {
+        "sentadilla": "gcNh17Ckjgg",
+        "squat": "gcNh17Ckjgg",
+        "press de banca": "rT7DgCr-3ps",
+        "bench": "rT7DgCr-3ps",
+        "peso muerto": "ytGaGIn3SjE",
+        "deadlift": "ytGaGIn3SjE",
+        "jalón": "L815_F4fI3w",
+        "lat pulldown": "L815_F4fI3w",
+        "kettlebell": "ysS-SAs_X_U",
+        "flexion": "IODxDxX7oi4",
+        "push up": "IODxDxX7oi4",
+        "curl": "3S7T5109-YI",
+        "zancada": "QOVaHwm-Q6U",
+        "lunge": "QOVaHwm-Q6U",
+        "plancha": "Xyd_fa5zoEU",
+        "plank": "Xyd_fa5zoEU",
+        "dominada": "CAwf7n6Luuc",
+        "pull up": "CAwf7n6Luuc",
+        "burpee": "dZfeV7UqWls",
+        "triceps": "6kALZH_vSNo",
+        "press militar": "2yjwxt1bcZ8",
+        "remo": "L815_F4fI3w",
+    }
+    MUSCLE_MAP = {
+        "espalda": "L815_F4fI3w",
+        "pecho": "rT7DgCr-3ps",
+        "pierna": "gcNh17Ckjgg",
+        "hombro": "2yjwxt1bcZ8",
+        "brazo": "3S7T5109-YI",
+        "abdomen": "Xyd_fa5zoEU",
+        "core": "Xyd_fa5zoEU",
+        "isquio": "ytGaGIn3SjE",
+        "glúte": "QOVaHwm-Q6U",
     }
 
-    DEFAULT_VIDEO = "gcNh17Ckjgg"  # Squat University (very stable for embedding)
+    for key, val in NAME_MAP.items():
+        if key in name_lower:
+            return val
+    for key, val in MUSCLE_MAP.items():
+        if key in muscle_lower or key in name_lower:
+            return val
+    return "gcNh17Ckjgg"
 
-    reasons = [
-        "Potencia tu fuerza explosiva y estabilidad central.",
-        "Ideal para corregir desequilibrios musculares.",
-        "Optimiza tu rango de movimiento y previene lesiones.",
-        "Aumenta la densidad muscular y mejora tu postura.",
-    ]
+
+def _get_mock_recommendations(available_exercises, model=None):
+    """
+    Fallback: selects exercises based on user profile data and uses Gemini
+    (if available) to generate specific reason and instructions per exercise.
+    """
+    import random
 
     if not available_exercises:
         return [
             {
-                "exercise_name": "Jalón al pecho",
-                "reason": "Excelente para fortalecer tus cadenas musculares posteriores.",
+                "exercise_name": "Sentadilla",
+                "reason": "Ejercicio fundamental para desarrollar fuerza en el tren inferior.",
                 "sets": 3,
                 "reps": "12",
                 "rest": 60,
-                "muscle": "Espalda",
-                "instructions": "Mantén los codos hacia abajo y el pecho arriba.",
-                "youtube_id": YOUTUBE_MAPPING["jalón al pecho"],
+                "muscle": "Piernas",
+                "instructions": "Pies a anchura de hombros, espalda recta, baja hasta paralelo.",
+                "youtube_id": "gcNh17Ckjgg",
             }
         ]
 
     selected = random.sample(list(available_exercises), min(len(available_exercises), 3))  # nosec B311
-
     results = []
+
     for ex in selected:
-        name_lower = ex.name.lower()
+        # Get YouTube video
+        video_id = _search_youtube_video(ex.name)
+        if not video_id:
+            video_id = _fallback_video(ex.name, ex.muscle or "")
+
+        # Use Gemini for specific descriptions if available
+        ai_description = {}
+        if model:
+            ai_description = _ai_describe_exercise(model, ex.name, ex.muscle or "General")
+
         results.append(
             {
                 "exercise_name": ex.name,
-                "reason": random.choice(reasons),  # nosec B311
-
+                "reason": ai_description.get("reason")
+                or f"Trabaja {ex.muscle or 'músculos clave'} y mejora tu rendimiento general.",  # nosec B311
                 "sets": 3,
                 "reps": "12",
                 "rest": 60,
                 "muscle": ex.muscle if ex.muscle else "General",
-                "instructions": "Realiza el movimiento con control total.",
-                "youtube_id": YOUTUBE_MAPPING.get(name_lower, DEFAULT_VIDEO),
+                "instructions": ai_description.get("instructions")
+                or f"Ejecuta {ex.name} con técnica precisa en cada repetición.",
+                "youtube_id": video_id,
             }
         )
 

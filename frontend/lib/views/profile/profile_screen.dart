@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/token_storage.dart';
 import '../../models/profile/profile_settings_model.dart';
+import '../../models/profile/comparative_stats_model.dart';
 import '../../models/dashboard/dashboard_model.dart';
 import '../../repositories/dashboard/dashboard_repository.dart';
 import '../../repositories/profile/profile_repository.dart';
@@ -37,10 +38,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isProfileLoading = false;
   bool _isSaving = false;
 
+  ComparativeStatsModel? _comparativeStats;
+  bool _isStatsLoading = false;
+  String _statsPeriod = 'monthly';
+
   @override
   void initState() {
     super.initState();
     _loadProfileSettings();
+    _loadComparativeStats();
   }
 
   @override
@@ -84,6 +90,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameCtrl.text = _userName;
         _isProfileLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadComparativeStats() async {
+    setState(() => _isStatsLoading = true);
+    try {
+      final stats = await _profileRepository.getComparativeStats(
+        period: _statsPeriod,
+      );
+      if (mounted) {
+        setState(() {
+          _comparativeStats = stats;
+          _isStatsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isStatsLoading = false);
+      }
     }
   }
 
@@ -472,7 +497,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
@@ -482,7 +506,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (_role == 'coach') _buildCoachProfile(),
                           const SizedBox(height: 24),
                           Text(
-                            'Configuracion',
+                            '⚙️ Configuración',
                             style: AppTextStyles.fitnessBold.copyWith(
                               color: AppColors.textPrimary,
                             ),
@@ -518,8 +542,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 24),
         Text(
-          'Tus datos',
+          '📈 Tus datos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -553,7 +578,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: _ProfileStatCard(
                 label: 'Altura',
                 value: _height != null
-                    ? '${_height!.toStringAsFixed(1)} cm'
+                    ? (_height! < 10
+                          ? '${_height!.toStringAsFixed(2)} m'
+                          : '${_height!.toStringAsFixed(0)} cm')
                     : 'Sin dato',
                 icon: Icons.height_rounded,
               ),
@@ -573,7 +600,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Mi objetivo',
+              '🎯 Mi objetivo',
               style: AppTextStyles.fitnessBold.copyWith(
                 color: AppColors.textPrimary,
               ),
@@ -686,7 +713,224 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : 'Ver historial de peso',
           onTap: () {},
         ),
+        const SizedBox(height: 24),
+        _buildComparativeStats(),
       ],
+    );
+  }
+
+  Widget _buildComparativeStats() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '📊 Progreso',
+              style: AppTextStyles.fitnessBold.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            DropdownButton<String>(
+              value: _statsPeriod,
+              dropdownColor: AppColors.surface,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              underline: const SizedBox(),
+              icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+              items: const [
+                DropdownMenuItem(value: 'monthly', child: Text('Mensual')),
+                DropdownMenuItem(value: 'quarterly', child: Text('Trimestral')),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _statsPeriod = val;
+                  });
+                  _loadComparativeStats();
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_isStatsLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          )
+        else if (_comparativeStats == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.card,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: const Text(
+              'No se pudieron cargar las estadísticas',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          Column(
+            children: [
+              _buildStatComparativeRow(
+                title: 'Entrenamientos',
+                icon: Icons.fitness_center_rounded,
+                stat: _comparativeStats!.workouts,
+                unit: 'sesiones',
+                invertColors: false,
+              ),
+              const SizedBox(height: 8),
+              _buildStatComparativeRow(
+                title: 'Calorías Diarias',
+                icon: Icons.local_fire_department_rounded,
+                stat: _comparativeStats!.caloriesDailyAvg,
+                unit: 'kcal',
+                invertColors: true,
+              ),
+              const SizedBox(height: 8),
+              _buildStatComparativeRow(
+                title: 'Peso Promedio',
+                icon: Icons.monitor_weight_rounded,
+                stat: _comparativeStats!.weightAvg,
+                unit: 'kg',
+                invertColors: true,
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStatComparativeRow({
+    required String title,
+    required IconData icon,
+    required StatItem stat,
+    required String unit,
+    required bool invertColors,
+  }) {
+    final change = stat.changePercentage;
+    final isZero = change == 0;
+    final isIncrease = change > 0;
+
+    Color changeColor = Colors.grey;
+    IconData changeIcon = Icons.remove_rounded;
+
+    if (!isZero) {
+      if (isIncrease) {
+        changeColor = invertColors ? AppColors.error : AppColors.success;
+        changeIcon = Icons.arrow_upward_rounded;
+      } else {
+        changeColor = invertColors ? AppColors.success : AppColors.error;
+        changeIcon = Icons.arrow_downward_rounded;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        boxShadow: AppColors.softShadow,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${stat.current} $unit',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Anterior: ${stat.previous} $unit',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: changeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(changeIcon, color: changeColor, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${change.abs().toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: changeColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: stat.current > 0 || stat.previous > 0
+                  ? (stat.current /
+                        ((stat.current > stat.previous
+                                    ? stat.current
+                                    : stat.previous) ==
+                                0
+                            ? 1
+                            : (stat.current > stat.previous
+                                  ? stat.current
+                                  : stat.previous)))
+                  : 0.0,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation<Color>(changeColor),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -698,7 +942,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tus datos',
+          '📈 Tus datos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -725,7 +969,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Mis grupos',
+          '👥 Mis grupos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),

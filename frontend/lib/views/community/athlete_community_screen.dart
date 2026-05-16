@@ -250,9 +250,6 @@ class CommunityScreenState extends State<CommunityScreen> {
 
 class _CommunityHeader extends StatelessWidget {
   const _CommunityHeader();
-  static const String _communityText = "COMUNIDAD";
-  static const String _subtitlecCommunityText =
-      "EXPLORA RUTINAS PÚBLICAS COMPARTIDAS POR OTROS USUARIOS";
 
   @override
   Widget build(BuildContext context) {
@@ -265,15 +262,21 @@ class _CommunityHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _communityText,
-                  style: AppTextStyles.fitnessDisplay.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'COMUNIDAD',
+                      style: AppTextStyles.fitnessDisplay.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('🏆', style: TextStyle(fontSize: 22)),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _subtitlecCommunityText,
+                  'EXPLORA RUTINAS PÚBLICAS COMPARTIDAS POR OTROS USUARIOS',
                   style: AppTextStyles.fitnessCaption.copyWith(
                     color: AppColors.textSecondary,
                   ),

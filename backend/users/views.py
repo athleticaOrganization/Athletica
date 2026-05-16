@@ -1,10 +1,17 @@
+from datetime import timedelta
+
 from django.db import models
+from django.db.models import Avg
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+
+from nutrition.models import MealRecord
+from routines.models import WorkoutSession
 
 from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog
 from .serializers import (
@@ -353,5 +360,109 @@ def CoachDashboardView(request):
             "speciality": profile.speciality,
             "years_experience": profile.years_experience,
             "groups": list(groups),
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ComparativeStatsView(request):
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    period = request.query_params.get("period", "monthly")
+    now = timezone.now()
+
+    if period == "monthly":
+        current_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        previous_start = (current_start - timedelta(days=1)).replace(day=1)
+        previous_end = current_start - timedelta(microseconds=1)
+    elif period == "quarterly":
+        current_quarter_month = ((now.month - 1) // 3) * 3 + 1
+        current_start = now.replace(
+            month=current_quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        previous_end = current_start - timedelta(microseconds=1)
+        previous_quarter_month = ((previous_end.month - 1) // 3) * 3 + 1
+        previous_start = previous_end.replace(
+            month=previous_quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+    else:
+        return Response({"error": "Periodo no soportado"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def calc_change(curr, prev):
+        if prev == 0 and curr > 0:
+            return 100.0
+        if prev == 0 and curr == 0:
+            return 0.0
+        return ((curr - prev) / prev) * 100.0
+
+    current_workouts = WorkoutSession.objects.filter(
+        user=request.user, date__gte=current_start
+    ).count()
+    previous_workouts = WorkoutSession.objects.filter(
+        user=request.user, date__gte=previous_start, date__lte=previous_end
+    ).count()
+    workouts_change = calc_change(current_workouts, previous_workouts)
+
+    current_meals = MealRecord.objects.filter(athlete=profile, date__gte=current_start.date())
+    current_calories = sum(m.calories for m in current_meals)
+    days_current = max(1, (now.date() - current_start.date()).days + 1)
+    current_cal_avg = float(current_calories) / days_current
+
+    previous_meals = MealRecord.objects.filter(
+        athlete=profile, date__gte=previous_start.date(), date__lte=previous_end.date()
+    )
+    previous_calories = sum(m.calories for m in previous_meals)
+    days_previous = max(1, (previous_end.date() - previous_start.date()).days + 1)
+    previous_cal_avg = float(previous_calories) / days_previous
+    cal_change = calc_change(current_cal_avg, previous_cal_avg)
+
+    current_weight_avg = (
+        WeightLog.objects.filter(athlete=profile, date__gte=current_start).aggregate(Avg("weight"))[
+            "weight__avg"
+        ]
+        or 0.0
+    )
+    previous_weight_avg = (
+        WeightLog.objects.filter(
+            athlete=profile, date__gte=previous_start, date__lte=previous_end
+        ).aggregate(Avg("weight"))["weight__avg"]
+        or 0.0
+    )
+
+    if current_weight_avg == 0:
+        last = WeightLog.objects.filter(athlete=profile).order_by("-date").first()
+        current_weight_avg = float(last.weight) if last else 0.0
+
+    if previous_weight_avg == 0:
+        last_prev = (
+            WeightLog.objects.filter(athlete=profile, date__lte=previous_end)
+            .order_by("-date")
+            .first()
+        )
+        previous_weight_avg = float(last_prev.weight) if last_prev else current_weight_avg
+
+    weight_change = calc_change(current_weight_avg, previous_weight_avg)
+
+    return Response(
+        {
+            "workouts": {
+                "current": current_workouts,
+                "previous": previous_workouts,
+                "change_percentage": round(workouts_change, 1),
+            },
+            "calories_daily_avg": {
+                "current": round(current_cal_avg, 1),
+                "previous": round(previous_cal_avg, 1),
+                "change_percentage": round(cal_change, 1),
+            },
+            "weight_avg": {
+                "current": round(current_weight_avg, 1),
+                "previous": round(previous_weight_avg, 1),
+                "change_percentage": round(weight_change, 1),
+            },
         }
     )
