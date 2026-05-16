@@ -40,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final RecommendationRepository _recommendationRepository =
       RecommendationRepository(baseUrl: ApiClient.baseUrl);
 
+  String _userRole = 'athlete';
+
   static const int _calendarDays = 21;
   static const List<String> _weekdayLabels = [
     'L',
@@ -66,10 +68,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserName();
+    _loadUserRole();
     _loadCalendarActivity();
     _loadAiRecommendations();
     _loadDailyStats();
     _loadUserWeight();
+  }
+
+  Future<void> _loadUserRole() async {
+    final role = await TokenStorage.getUserRole();
+    if (role != null) {
+      if (mounted) setState(() => _userRole = role);
+    }
   }
 
   @override
@@ -312,21 +322,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        child: SizedBox(
-                          height: 240,
-                          child: ClipRRect(
-                            borderRadius: AppRadius.card,
-                            child: rec.youtubeId.isNotEmpty
-                                ? MouseRegion(
-                                    opaque: true,
-                                    child: YoutubePlayer(
-                                      controller: controller,
-                                      key: ValueKey(rec.youtubeId),
-                                    ),
-                                  )
-                                : _buildVideoPlaceholder(),
-                          ),
-                        ),
+                        child: rec.youtubeId.isNotEmpty
+                            ? YoutubePlayer(
+                                controller: controller,
+                                key: ValueKey(rec.youtubeId),
+                              )
+                            : _buildVideoPlaceholder(),
                       ),
                       const SizedBox(height: 12),
                       if (rec.muscle.isNotEmpty)
@@ -572,10 +573,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildSectionTitle("📅 CALENDARIO DE RACHA"),
                   const SizedBox(height: 16),
                   _buildStreakCalendar(),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle("🎯🌟 RECOMENDACIÓN DEL DÍA"),
-                  const SizedBox(height: 16),
-                  _buildAiRecommendations(),
+                  if (_userRole != 'coach') ...[
+                    const SizedBox(height: 32),
+                    _buildSectionTitle("🎯🌟 RECOMENDACIÓN DEL DÍA"),
+                    const SizedBox(height: 16),
+                    _buildAiRecommendations(),
+                  ],
                   const SizedBox(height: 120),
                 ],
               ),

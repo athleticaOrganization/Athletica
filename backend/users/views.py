@@ -1,8 +1,13 @@
 from datetime import timedelta
 
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Avg
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -466,3 +471,97 @@ def ComparativeStatsView(request):
             },
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def PasswordResetRequestView(request):
+    """
+    Solicita un restablecimiento de contraseña.
+    En una app real, enviaría un correo. Aquí simulamos el envío por consola.
+    """
+    email = request.data.get("email")
+    if not email:
+        return Response({"detail": "El email es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Por seguridad, no revelamos si el email existe o no.
+        return Response(
+            {"detail": "Si el email está registrado, recibirás un enlace de recuperación."},
+            status=status.HTTP_200_OK,
+        )
+
+    token = default_token_generator.make_token(user)
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+
+    # En una app real, aquí enviaríamos el correo
+    subject = "Restablece tu contraseña en Athletica"
+    message = f"Hola {user.username},\n\nUtiliza los siguientes datos para restablecer tu contraseña en la aplicación:\n\nUID: {uidb64}\nToken: {token}\n\nSi no solicitaste este cambio, ignora este mensaje."
+
+    try:
+        print(f"DEBUG: Intentando enviar correo a {email} desde {settings.DEFAULT_FROM_EMAIL}...")
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        print(f"DEBUG: Correo enviado exitosamente a {email}")
+    except Exception as e:
+        # Si falla el envío (por falta de config), imprimimos en consola para no perder el token
+        print(f"ERROR enviando correo a {email}: {e}")
+        print(f"DATOS DE RECUPERACIÓN -> UID: {uidb64} | TOKEN: {token}")
+
+    return Response(
+        {
+            "detail": "Si el email está registrado, recibirás un código de recuperación.",
+            "debug_token": token,
+            "debug_uid": uidb64,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def PasswordResetConfirmView(request):
+    """
+    Confirma el restablecimiento de contraseña con el token recibido.
+    """
+    uidb64 = request.data.get("uid")
+    token = request.data.get("token")
+    new_password = request.data.get("password")
+
+    print(
+        f"DEBUG Confirm: Recibido UID={uidb64}, Token={token}, Password={'***' if new_password else 'VACIO'}"
+    )
+
+    if not (uidb64 and token and new_password):
+        return Response(
+            {"detail": "Faltan datos requeridos (uid, token, password)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+        print(f"DEBUG Confirm: Usuario encontrado: {user.username}")
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
+        print(f"DEBUG Confirm: Error al decodificar UID o usuario no existe: {e}")
+        return Response({"detail": "Enlace o UID inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        user.set_password(new_password)
+        user.save()
+        print(f"DEBUG Confirm: Contraseña de {user.username} actualizada con éxito.")
+        return Response(
+            {"detail": "Contraseña restablecida correctamente."}, status=status.HTTP_200_OK
+        )
+    else:
+        print(f"DEBUG Confirm: El token '{token}' es inválido para el usuario {user.username}")
+        return Response(
+            {"detail": "El token es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST
+        )

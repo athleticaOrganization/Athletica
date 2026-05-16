@@ -10,6 +10,8 @@ from .views import (
     CustomTokenObtainPairView,
     GoalDetailView,
     GoalLogView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     ProfileSettingsView,
     RegisterView,
     WeightLogView,
@@ -37,5 +39,9 @@ urlpatterns = [
     path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
     path(
         "api/dashboard/athlete/comparative-stats/", ComparativeStatsView, name="comparative_stats"
+    ),
+    path("api/auth/password-reset/", PasswordResetRequestView, name="password_reset"),
+    path(
+        "api/auth/password-reset-confirm/", PasswordResetConfirmView, name="password_reset_confirm"
     ),
 ]
