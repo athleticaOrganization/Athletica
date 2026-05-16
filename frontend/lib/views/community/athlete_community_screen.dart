@@ -110,7 +110,6 @@ class CommunityScreenState extends State<CommunityScreen> {
           child: _PublicRoutineCard(
             routine: routine,
             onTapTitle: () => _showRoutineDetails(context, routine),
-            routineIndex: index.toInt(),
             viewModel: viewModel,
           ),
         );
@@ -292,13 +291,11 @@ class _CommunityHeader extends StatelessWidget {
 class _PublicRoutineCard extends StatelessWidget {
   final RoutineModel routine;
   final VoidCallback onTapTitle;
-  final int routineIndex;
   final PublicRoutinesViewModel viewModel;
 
   const _PublicRoutineCard({
     required this.routine,
     required this.onTapTitle,
-    required this.routineIndex,
     required this.viewModel,
   });
 
@@ -343,13 +340,9 @@ class _PublicRoutineCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.md),
                 _FollowButton(
                   isFollowing: routine.isFollowing ?? false,
-                  onFollow: () => viewModel.followCreator(
-                    routine.createdBy!,
-                    routineIndex,
-                  ),
+                  onFollow: () => viewModel.followCreator(routine.createdBy!),
                   onUnfollow: () => viewModel.unfollowCreator(
                     routine.createdBy!,
-                    routineIndex,
                   ),
                 ),
               ],
@@ -590,25 +583,16 @@ class _FollowButton extends StatefulWidget {
 }
 
 class _FollowButtonState extends State<_FollowButton> {
-  late bool _isFollowing;
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isFollowing = widget.isFollowing;
-  }
 
   Future<void> _handleFollowTap() async {
     setState(() => _isLoading = true);
     try {
-      if (_isFollowing) {
+      if (widget.isFollowing) {
         await widget.onUnfollow();
       } else {
         await widget.onFollow();
       }
-      if (!mounted) return;
-      setState(() => _isFollowing = !_isFollowing);
     } catch (e) {
       // Error se maneja en el ViewModel
       if (!mounted) return;
@@ -650,14 +634,14 @@ class _FollowButtonState extends State<_FollowButton> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _isFollowing
+                    widget.isFollowing
                         ? Icons.person_rounded
                         : Icons.person_add_alt_1_rounded,
                     size: 16,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _isFollowing ? 'Siguiendo' : 'Seguir',
+                    widget.isFollowing ? 'Siguiendo' : 'Seguir',
                     style: AppTextStyles.bentoUnit.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,

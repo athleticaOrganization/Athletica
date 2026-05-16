@@ -43,15 +43,11 @@ class PublicRoutinesViewModel extends ChangeNotifier {
   }
 
   /// Sigue al creador de una rutina.
-  Future<void> followCreator(int userId, int routineIndex) async {
+  Future<void> followCreator(int userId) async {
     try {
       await routineRepository.followUser(userId);
-      
-      // Actualizar el estado localmente
-      if (routineIndex >= 0 && routineIndex < publicRoutines.length) {
-        publicRoutines[routineIndex] = publicRoutines[routineIndex].copyWith(isFollowing: true);
-        notifyListeners();
-      }
+
+      _updateFollowStateForCreator(userId: userId, isFollowing: true);
     } catch (e) {
       errorMessage = 'Error al seguir: $e';
       notifyListeners();
@@ -59,19 +55,29 @@ class PublicRoutinesViewModel extends ChangeNotifier {
   }
 
   /// Deja de seguir al creador de una rutina.
-  Future<void> unfollowCreator(int userId, int routineIndex) async {
+  Future<void> unfollowCreator(int userId) async {
     try {
       await routineRepository.unfollowUser(userId);
-      
-      // Actualizar el estado localmente
-      if (routineIndex >= 0 && routineIndex < publicRoutines.length) {
-        publicRoutines[routineIndex] = publicRoutines[routineIndex].copyWith(isFollowing: false);
-        notifyListeners();
-      }
+
+      _updateFollowStateForCreator(userId: userId, isFollowing: false);
     } catch (e) {
       errorMessage = 'Error al dejar de seguir: $e';
       notifyListeners();
     }
+  }
+
+  void _updateFollowStateForCreator({
+    required int userId,
+    required bool isFollowing,
+  }) {
+    publicRoutines = publicRoutines
+        .map(
+          (routine) => routine.createdBy == userId
+              ? routine.copyWith(isFollowing: isFollowing)
+              : routine,
+        )
+        .toList();
+    notifyListeners();
   }
 
   /// Calcula las iniciales a partir de un nombre.

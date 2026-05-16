@@ -1,7 +1,9 @@
 from django.contrib import admin
 
 from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog
+from .models import Follow
 
+admin.site.register(Follow)
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):

@@ -144,15 +144,19 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
 
     def get_creator_is_following(self, routine):
         """Verifica si el usuario logueado sigue al creador de la rutina."""
-        
+
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
-        
-        if request.user.id == routine.created_by.id:
+
+        if request.user.id == routine.created_by_id:
             return None  # El creador no puede seguirse a sí mismo
-        
+
+        annotated_value = getattr(routine, "is_followed_by_request_user", None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+
         return Follow.objects.filter(
             follower=request.user,
-            following=routine.created_by
+            following_id=routine.created_by_id,
         ).exists()
