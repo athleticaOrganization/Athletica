@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 # Serializer para las metas de un atleta.
 class GoalSerializer(serializers.ModelSerializer):
-    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     target_value = serializers.FloatField(required=False, allow_null=True)
     current_value = serializers.FloatField(required=False, allow_null=True)
     deadline = serializers.DateField(required=False, allow_null=True)
@@ -36,7 +38,6 @@ class WeightLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeightLog
         fields = ["id", "weight", "body_fat", "date"]
-        read_only_fields = ["date"]
 
 
 # Serializer para el perfil del atleta.
@@ -47,7 +48,15 @@ class AthleteProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AthleteProfile
-        fields = ["id", "height", "age", "gender", "activity_level", "goals", "weight_logs"]
+        fields = [
+            "id",
+            "height",
+            "age",
+            "gender",
+            "activity_level",
+            "goals",
+            "weight_logs",
+        ]
 
 
 # Serializer para el perfil del coach.
