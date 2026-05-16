@@ -51,13 +51,23 @@ class _MainScreenState extends State<MainScreen> {
         _athleteId = (role == 'athlete') ? athleteId : userId;
         _userRole = role;
       });
+      
       // Check routine updates using the USER ID (since assigned_athletes are users)
-      if (role == 'athlete' && userId != null) {
-        _checkRoutineUpdate(userId);
-        // Start polling every 5 minutes
+      if (userId != null) {
+        if (role == 'athlete') {
+          _checkRoutineUpdate(userId);
+        }
+        _checkNewFollowers();
+        
+        // Start polling every 5 minutes (single timer for all checks)
         _pollingTimer = Timer.periodic(
           const Duration(minutes: 5),
-          (_) => _checkRoutineUpdate(userId),
+          (_) {
+            if (role == 'athlete') {
+              _checkRoutineUpdate(userId);
+            }
+            _checkNewFollowers();
+          },
         );
       }
     }
@@ -89,23 +99,30 @@ class _MainScreenState extends State<MainScreen> {
                 ? "Tu entrenador te ha asignado un nuevo plan de entrenamiento."
                 : "Se han realizado cambios en tu rutina actual.";
 
-            setState(() {
-              _notifications.insert(
-                0,
-                NotificationModel(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  title: title,
-                  message: message,
-                  date: DateTime.now(),
-                  type: isFirstTime
-                      ? NotificationType.routineAssigned
-                      : NotificationType.routineUpdated,
-                  relatedId: currentRoutineId.toString(),
-                ),
-              );
-            });
+            // Prevent inserting duplicate top notification
+            final shouldInsert = _notifications.isEmpty ||
+                !(_notifications.first.title == title &&
+                    _notifications.first.message == message);
 
-            _showNotificationSnackBar(title);
+            if (shouldInsert) {
+              setState(() {
+                _notifications.insert(
+                  0,
+                  NotificationModel(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    title: title,
+                    message: message,
+                    date: DateTime.now(),
+                    type: isFirstTime
+                        ? NotificationType.routineAssigned
+                        : NotificationType.routineUpdated,
+                    relatedId: currentRoutineId.toString(),
+                  ),
+                );
+              });
+
+              _showNotificationSnackBar(title, 1);
+            }
           }
         }
         await TokenStorage.saveLastRoutineId(currentRoutineId);
@@ -115,7 +132,85 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _showNotificationSnackBar(String message) {
+  Future<void> _checkNewFollowers() async {
+    try {
+        final String endpoint = _userRole == 'coach'
+          ? 'dashboard/coach/'
+          : 'dashboard/athlete/';
+      
+      final response = await ApiClient.dio.get(endpoint);
+      final int currentFollowersCount = response.data['followers_count'] ?? 0;
+      final int? lastFollowersCount = await TokenStorage.getLastFollowersCount();
+
+      if (lastFollowersCount != null && currentFollowersCount > lastFollowersCount) {
+        final newFollowersCount = currentFollowersCount - lastFollowersCount;
+
+        if (mounted) {
+          final title = 'Nuevos Seguidores';
+          final message = newFollowersCount == 1
+              ? 'Un usuario empezó a seguirte'
+              : '$newFollowersCount usuarios empezaron a seguirte';
+
+          // Prevent inserting duplicate top notification
+          final shouldInsert = _notifications.isEmpty ||
+              !(_notifications.first.title == title &&
+                  _notifications.first.message == message);
+
+          if (shouldInsert) {
+            setState(() {
+              _notifications.insert(
+                0,
+                NotificationModel(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: title,
+                  message: message,
+                  date: DateTime.now(),
+                  type: NotificationType.followerAdded,
+                ),
+              );
+            });
+
+            _showNotificationSnackBar(title, 4);
+          }
+        }
+      } else if (lastFollowersCount == null && currentFollowersCount > 0) {
+        // First run: if the user already has followers, notify once.
+        if (mounted) {
+          final title = 'Tienes nuevos seguidores';
+          final message = currentFollowersCount == 1
+              ? 'Tienes 1 seguidor'
+              : 'Tienes $currentFollowersCount seguidores';
+
+          final shouldInsert = _notifications.isEmpty ||
+              !(_notifications.first.title == title &&
+                  _notifications.first.message == message);
+
+          if (shouldInsert) {
+            setState(() {
+              _notifications.insert(
+                0,
+                NotificationModel(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: title,
+                  message: message,
+                  date: DateTime.now(),
+                  type: NotificationType.followerAdded,
+                ),
+              );
+            });
+
+            _showNotificationSnackBar(title, 4);
+          }
+        }
+      }
+
+      await TokenStorage.saveLastFollowersCount(currentFollowersCount);
+    } catch (e) {
+      debugPrint("Error checking new followers (Silent): $e");
+    }
+  }
+
+  void _showNotificationSnackBar(String message, int indexPage) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -131,7 +226,7 @@ class _MainScreenState extends State<MainScreen> {
         action: SnackBarAction(
           label: "VER",
           textColor: Colors.white,
-          onPressed: () => setState(() => _currentIndex = 1), // Ir a rutinas
+          onPressed: () => setState(() => _currentIndex = indexPage), // Ir a rutinas
         ),
       ),
     );

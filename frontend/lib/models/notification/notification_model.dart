@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum NotificationType { routineAssigned, routineUpdated, community, system }
+enum NotificationType { routineAssigned, routineUpdated, community, followerAdded, system }
 
 class NotificationModel {
   final String id;
@@ -29,6 +29,8 @@ class NotificationModel {
         return Icons.update_rounded;
       case NotificationType.community:
         return Icons.people_rounded;
+      case NotificationType.followerAdded:
+        return Icons.person_add_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -42,6 +44,8 @@ class NotificationModel {
         return Colors.blue;
       case NotificationType.community:
         return Colors.green;
+      case NotificationType.followerAdded:
+        return Colors.purple;
       default:
         return Colors.grey;
     }
