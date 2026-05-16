@@ -183,8 +183,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           }
                         } finally {
-                          if (context.mounted)
+                          if (context.mounted) {
                             setDialogState(() => isRequesting = false);
+                          }
                         }
                       },
                 child: isRequesting
@@ -277,8 +278,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? null
                     : () async {
                         if (tokenController.text.isEmpty ||
-                            passwordController.text.isEmpty)
+                            passwordController.text.isEmpty) {
                           return;
+                        }
                         setDialogState(() => isResetting = true);
                         try {
                           await ApiClient.dio.post(
@@ -311,8 +313,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           }
                         } finally {
-                          if (context.mounted)
+                          if (context.mounted) {
                             setDialogState(() => isResetting = false);
+                          }
                         }
                       },
                 child: isResetting

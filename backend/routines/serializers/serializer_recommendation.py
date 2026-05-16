@@ -7,7 +7,7 @@ class AIRecommendationSerializer(serializers.Serializer):
     image_url = serializers.CharField(
         required=False, allow_blank=True
     )  # Changed to CharField as it might be a local path or empty
-    exercise_id = serializers.IntegerField(required=False)
+    exercise_id = serializers.IntegerField(required=False, allow_null=True)
     sets = serializers.IntegerField(default=3)
     reps = serializers.CharField(default="12")
     rest = serializers.IntegerField(default=60)
