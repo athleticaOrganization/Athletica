@@ -53,9 +53,7 @@ class AppColors {
   static const Color error = Color(0xFFFA5252);
   static const Color deleteRed = Color(0xFFFA5252);
   static const Color success = Color(0xFF40C057);
-  static const Color intensityNeon = Color(
-    0xFFFFA500,
-  ); // Electric fitness accent
+  static const Color intensityNeon = Color(0xFFFFA500); // Electric fitness accent
 
   // ─── Sombras (Shadows) ─────────────────────────────────────────────────────
   static List<BoxShadow> get softShadow => [

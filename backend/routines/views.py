@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import decorators, status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from users.models import User
@@ -76,6 +76,17 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+    @decorators.action(detail=False, methods=["get"], url_path="public", permission_classes=[AllowAny])
+    def get_public_routines(self, request):
+        """Lista todas las rutinas públicas.
+
+        Ruta: GET /api/routines/public/
+        Devuelve la lista de rutinas cuyo campo `is_public` es True.
+        """
+        routines = self.queryset.filter(is_public=True)
+        serializer = RoutineDetailSerializer(routines, many=True)
+        return Response(serializer.data)
 
     @decorators.action(detail=True, methods=["patch"])
     def add_exercises(self, request, pk=None):
