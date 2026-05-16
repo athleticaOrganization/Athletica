@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Serializer para las metas de un atleta.
 class GoalSerializer(serializers.ModelSerializer):
-    description = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
-    )
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     target_value = serializers.FloatField(required=False, allow_null=True)
     current_value = serializers.FloatField(required=False, allow_null=True)
     deadline = serializers.DateField(required=False, allow_null=True)
