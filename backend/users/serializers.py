@@ -1,10 +1,11 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Goal, Reminder, User, WeightLog
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,38 @@ class ProfileSettingsSerializer(serializers.Serializer):
     weight = serializers.FloatField(required=False, min_value=1)
     height = serializers.FloatField(required=False, min_value=1)
     training_goal = serializers.ChoiceField(required=False, choices=Goal.GOAL_CHOICES)
+
+
+class ReminderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reminder
+        fields = [
+            "id",
+            "activity_type",
+            "remind_at",
+            "is_active",
+            "notified_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "notified_at", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        remind_at = attrs.get("remind_at")
+        if remind_at is None and self.instance is not None:
+            remind_at = self.instance.remind_at
+
+        if remind_at is None:
+            raise serializers.ValidationError(
+                {"remind_at": "Debes seleccionar una fecha y hora para el recordatorio."}
+            )
+
+        if remind_at <= timezone.now():
+            raise serializers.ValidationError(
+                {"remind_at": "El horario seleccionado es inválido. Debe ser futuro."}
+            )
+
+        return attrs
 
 
 # Serializer para el registro de nuevos usuarios.

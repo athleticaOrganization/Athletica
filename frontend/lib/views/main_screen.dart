@@ -13,6 +13,7 @@ import '../../core/token_storage.dart';
 import '../../core/api_client.dart';
 import 'notifications/notifications_screen.dart';
 import '../../models/notification/notification_model.dart';
+import '../../repositories/notification/reminder_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -27,7 +28,10 @@ class _MainScreenState extends State<MainScreen> {
   int? _athleteId;
   String? _userRole;
   Timer? _pollingTimer;
+  Timer? _reminderPollingTimer;
+  OverlayEntry? _activeBannerEntry;
   final List<NotificationModel> _notifications = [];
+  final ReminderService _reminderService = ReminderService();
 
   final GlobalKey<RoutinesListScreenState> _routinesKey = GlobalKey();
   final GlobalKey<CoachAthletesScreenState> _coachAthletesKey = GlobalKey();
@@ -42,11 +46,15 @@ class _MainScreenState extends State<MainScreen> {
     final athleteId = await TokenStorage.getAthleteId();
     final userId = await TokenStorage.getUserId();
     final role = await TokenStorage.getUserRole();
+    final savedNotifications = await TokenStorage.getNotifications();
     if (mounted) {
       setState(() {
         // Nutrition needs the Profile ID (athleteId). Coaches might use userId for now if they have no profile.
         _athleteId = (role == 'athlete') ? athleteId : userId;
         _userRole = role;
+        _notifications
+          ..clear()
+          ..addAll(savedNotifications);
       });
       // Check routine updates using the USER ID (since assigned_athletes are users)
       if (role == 'athlete' && userId != null) {
@@ -57,13 +65,62 @@ class _MainScreenState extends State<MainScreen> {
           (_) => _checkRoutineUpdate(userId),
         );
       }
+
+      _checkDueReminders();
+      _reminderPollingTimer = Timer.periodic(
+        const Duration(minutes: 1),
+        (_) => _checkDueReminders(),
+      );
     }
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _reminderPollingTimer?.cancel();
+    _activeBannerEntry?.remove();
     super.dispose();
+  }
+
+  Future<void> _checkDueReminders() async {
+    try {
+      final dueReminders = await _reminderService.getDueReminders();
+      // Debug: print when received
+      try {
+        // ignore: avoid_print
+        print('MainScreen._checkDueReminders -> received ${dueReminders.length} due reminders');
+      } catch (_) {}
+      if (!mounted || dueReminders.isEmpty) return;
+
+      setState(() {
+        for (final reminder in dueReminders) {
+          final isTraining = reminder.activityType == 'training';
+          final reminderNotification = NotificationModel(
+            id: 'reminder-${reminder.id}-${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Recordatorio',
+            message: isTraining
+                ? 'Es hora de tu entrenamiento programado.'
+                : 'Es hora de registrar tu alimentación.',
+            date: DateTime.now(),
+            type: NotificationType.reminder,
+            relatedId: reminder.id.toString(),
+          );
+          _notifications.insert(
+            0,
+            reminderNotification,
+          );
+        }
+      });
+
+      await TokenStorage.saveNotifications(_notifications);
+
+      _showTopNotificationBanner(
+        'Tienes recordatorios pendientes',
+        onAction: _openNotificationsScreen,
+      );
+    } catch (e) {
+      debugPrint('Error checking due reminders (Silent): $e');
+    }
   }
 
   Future<void> _checkRoutineUpdate(int userId) async {
@@ -102,7 +159,11 @@ class _MainScreenState extends State<MainScreen> {
               );
             });
 
-            _showNotificationSnackBar(title);
+            await TokenStorage.saveNotifications(_notifications);
+            _showTopNotificationBanner(
+              title,
+              onAction: () => setState(() => _currentIndex = 1),
+            );
           }
         }
         await TokenStorage.saveLastRoutineId(currentRoutineId);
@@ -112,26 +173,111 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _showNotificationSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.notifications_active_rounded, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-          label: "VER",
-          textColor: Colors.white,
-          onPressed: () => setState(() => _currentIndex = 1), // Ir a rutinas
+  void _showTopNotificationBanner(
+    String message, {
+    required VoidCallback onAction,
+  }) {
+    _activeBannerEntry?.remove();
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay == null) return;
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) {
+        final topPadding = MediaQuery.of(context).padding.top + 12;
+        return Positioned(
+          left: 16,
+          right: 16,
+          top: topPadding,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      entry.remove();
+                      _activeBannerEntry = null;
+                      onAction();
+                    },
+                    child: const Text(
+                      'VER',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      entry.remove();
+                      _activeBannerEntry = null;
+                    },
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    _activeBannerEntry = entry;
+    overlay.insert(entry);
+
+    Future.delayed(const Duration(seconds: 5), () {
+      if (_activeBannerEntry == entry) {
+        entry.remove();
+        _activeBannerEntry = null;
+      }
+    });
+  }
+
+  void _openNotificationsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NotificationsScreen(
+          notifications: _notifications,
+            onClearAll: () {
+            setState(() => _notifications.clear());
+              TokenStorage.clearNotifications();
+          },
         ),
       ),
-    );
+    ).then((_) async {
+      setState(() {
+        for (var n in _notifications) {
+          n.isRead = true;
+        }
+      });
+      await TokenStorage.saveNotifications(_notifications);
+    });
   }
 
   List<Widget> get _screens => [
@@ -139,24 +285,7 @@ class _MainScreenState extends State<MainScreen> {
       hasNotification: _notifications.any((n) => !n.isRead),
       athleteId: _athleteId,
       refreshTick: _homeRefreshTick,
-      onNotificationTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => NotificationsScreen(
-              notifications: _notifications,
-              onClearAll: () => setState(() => _notifications.clear()),
-            ),
-          ),
-        ).then((_) {
-          // Mark all as read after viewing
-          setState(() {
-            for (var n in _notifications) {
-              n.isRead = true;
-            }
-          });
-        });
-      },
+      onNotificationTap: _openNotificationsScreen,
     ),
     RoutinesListScreen(key: _routinesKey),
     _buildNutritionScreen(),

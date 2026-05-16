@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 # Extiende el modelo de usuario por defecto de Django.
@@ -123,3 +124,28 @@ class WeightLog(models.Model):
 
     def __str__(self):
         return f"{self.athlete.user.username} - {self.weight}kg ({self.date})"
+
+
+class Reminder(models.Model):
+    ACTIVITY_CHOICES = (
+        ("training", "Training"),
+        ("nutrition", "Nutrition"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reminders")
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_CHOICES)
+    remind_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    notified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["remind_at"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.activity_type} ({self.remind_at})"
+
+    @property
+    def is_due(self):
+        return self.is_active and self.remind_at <= timezone.now() and self.notified_at is None

@@ -10,6 +10,9 @@ from .views import (
     GoalDetailView,
     GoalLogView,
     ProfileSettingsView,
+    ReminderDetailView,
+    ReminderDueView,
+    ReminderListCreateView,
     RegisterView,
     WeightLogView,
     protected_test,
@@ -34,4 +37,7 @@ urlpatterns = [
     path("api/athlete/weight-logs/", WeightLogView, name="weight_logs"),
     path("api/athlete/goals/", GoalLogView, name="goals"),
     path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
+    path("api/reminders/", ReminderListCreateView, name="reminders"),
+    path("api/reminders/<int:reminder_id>/", ReminderDetailView, name="reminder_detail"),
+    path("api/reminders/due/", ReminderDueView, name="reminders_due"),
 ]
