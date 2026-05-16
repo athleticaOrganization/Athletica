@@ -13,6 +13,8 @@ from .views import (
     RegisterView,
     WeightLogView,
     protected_test,
+    followUser,
+    unfollowUser,
 )
 
 urlpatterns = [
@@ -21,6 +23,7 @@ urlpatterns = [
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth/me/", protected_test, name="me"),
     path("api/users/profile/settings/", ProfileSettingsView, name="profile_settings"),
+
     # Coach - Athlete management
     path("api/users/athletes/search/", AthleteSearchView, name="athlete_search"),
     path("api/users/coach/athletes/", CoachAthleteManagementView, name="coach_athletes"),
@@ -34,4 +37,8 @@ urlpatterns = [
     path("api/athlete/weight-logs/", WeightLogView, name="weight_logs"),
     path("api/athlete/goals/", GoalLogView, name="goals"),
     path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
+    
+    # Follow/Unfollow endpoints
+    path("api/users/<int:user_id>/follow/", followUser, name="follow_user"),
+    path("api/users/<int:user_id>/unfollow/", unfollowUser, name="unfollow_user"),
 ]

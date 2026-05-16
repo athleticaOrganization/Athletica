@@ -110,6 +110,8 @@ class CommunityScreenState extends State<CommunityScreen> {
           child: _PublicRoutineCard(
             routine: routine,
             onTapTitle: () => _showRoutineDetails(context, routine),
+            routineIndex: index.toInt(),
+            viewModel: viewModel,
           ),
         );
       }, childCount: viewModel.publicRoutines.length),
@@ -290,13 +292,21 @@ class _CommunityHeader extends StatelessWidget {
 class _PublicRoutineCard extends StatelessWidget {
   final RoutineModel routine;
   final VoidCallback onTapTitle;
+  final int routineIndex;
+  final PublicRoutinesViewModel viewModel;
 
-  const _PublicRoutineCard({required this.routine, required this.onTapTitle});
+  const _PublicRoutineCard({
+    required this.routine,
+    required this.onTapTitle,
+    required this.routineIndex,
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
     final creatorName = routine.creatorName ?? 'Usuario';
     final initials = PublicRoutinesViewModel.getInitials(creatorName);
+    final isOwnPost = viewModel.isOwnRoutine(routine);
 
     return Container(
       decoration: BoxDecoration(
@@ -328,6 +338,19 @@ class _PublicRoutineCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // Botón de Seguir/Siguiendo - solo si no es el post del usuario actual
+              if (!isOwnPost)
+                _FollowButton(
+                  isFollowing: routine.isFollowing ?? false,
+                  onFollow: () => viewModel.followCreator(
+                    routine.createdBy!,
+                    routineIndex,
+                  ),
+                  onUnfollow: () => viewModel.unfollowCreator(
+                    routine.createdBy!,
+                    routineIndex,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -525,6 +548,88 @@ class _ExerciseDetailTile extends StatelessWidget {
             child: Text(exercise.exercise.name, style: AppTextStyles.bodyText1),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  FOLLOW BUTTON
+// ─────────────────────────────────────────────
+class _FollowButton extends StatefulWidget {
+  final bool isFollowing;
+  final Future<void> Function() onFollow;
+  final Future<void> Function() onUnfollow;
+
+  const _FollowButton({
+    required this.isFollowing,
+    required this.onFollow,
+    required this.onUnfollow,
+  });
+
+  @override
+  State<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends State<_FollowButton> {
+  late bool _isFollowing;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFollowing = widget.isFollowing;
+  }
+
+  void _handleFollowTap() async {
+    setState(() => _isLoading = true);
+    try {
+      if (_isFollowing) {
+        await widget.onUnfollow();
+      } else {
+        await widget.onFollow();
+      }
+      setState(() => _isFollowing = !_isFollowing);
+    } catch (e) {
+      // Error se maneja en el ViewModel
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleFollowTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _isFollowing ? AppColors.surface : AppColors.primary,
+          foregroundColor: _isFollowing ? AppColors.primary : Colors.white,
+          side: _isFollowing 
+              ? const BorderSide(color: AppColors.primary)
+              : BorderSide.none,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+              )
+            : Text(
+                _isFollowing ? 'Siguiendo' : 'Seguir',
+                style: AppTextStyles.bentoUnit,
+              ),
       ),
     );
   }

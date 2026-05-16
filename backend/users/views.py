@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog, Follow
 from .serializers import (
     AthleteSearchSerializer,
     GoalSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     RegisterSerializer,
     UserSerializer,
     WeightLogSerializer,
+    FollowSerializer,
 )
 
 
@@ -354,4 +355,76 @@ def CoachDashboardView(request):
             "years_experience": profile.years_experience,
             "groups": list(groups),
         }
+    )
+
+
+# ── Follow/Unfollow ───────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def followUser(request, user_id):
+    """
+    Crear un registro Follow: el usuario logueado sigue a otro usuario.
+    user_id = id de User que se quiere seguir
+    """
+    try:
+        user_to_follow = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Usuario no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # No puede seguirse a sí mismo
+    if request.user.id == user_to_follow.id:
+        return Response(
+            {"detail": "No puedes seguirte a ti mismo."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Evitar duplicados
+    follow, isNew = Follow.objects.get_or_create(
+        follower=request.user,
+        following=user_to_follow
+    )
+
+    if not isNew:
+        return Response(
+            {"detail": "Ya estás siguiendo a este usuario."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = FollowSerializer(follow)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def unfollowUser(request, user_id):
+    """
+    Eliminar un registro Follow: el usuario logueado deja de seguir a otro usuario.
+    user_id = id de User que se quiere dejar de seguir
+    """
+    try:
+        user_to_unfollow = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Usuario no encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        follow = Follow.objects.get(
+            follower=request.user,
+            following=user_to_unfollow
+        )
+    except Follow.DoesNotExist:
+        return Response(
+            {"detail": "No estás siguiendo a este usuario."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    follow.delete()
+    return Response(
+        {"detail": "Has dejado de seguir al usuario."},
+        status=status.HTTP_204_NO_CONTENT
     )

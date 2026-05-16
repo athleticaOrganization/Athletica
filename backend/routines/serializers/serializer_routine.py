@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from routines.models import Exercise, Routine, RoutineExercise
 from routines.serializers.serializers_exercise import ExerciseSerializer
+from users.models import Follow
 
 
 # exercise_id: Debe ser el id de un Exercise existente.
@@ -105,6 +106,7 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
     )
     assigned_athletes_info = serializers.SerializerMethodField()
     creator_name = serializers.CharField(source="created_by.first_name", read_only=True)
+    creator_is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = Routine
@@ -117,6 +119,7 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             "is_public",
             "created_by",
             "creator_name",
+            "creator_is_following",
             "exercises",
             "assigned_athletes_count",
             "assigned_athletes_info",
@@ -138,3 +141,18 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             {"id": athlete.id, "first_name": athlete.first_name or athlete.username}
             for athlete in routine.assigned_athletes.all()
         ]
+
+    def get_creator_is_following(self, routine):
+        """Verifica si el usuario logueado sigue al creador de la rutina."""
+        
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        if request.user.id == routine.created_by.id:
+            return None  # El creador no puede seguirse a sí mismo
+        
+        return Follow.objects.filter(
+            follower=request.user,
+            following=routine.created_by
+        ).exists()

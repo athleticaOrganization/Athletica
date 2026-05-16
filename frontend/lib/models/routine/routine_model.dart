@@ -28,6 +28,9 @@ class RoutineModel {
   /// Nombre del creador de la rutina.
   final String? creatorName;
 
+  /// Indica si el usuario logueado sigue al creador de la rutina.
+  final bool? isFollowing;
+
   /// IDs de los atletas que tienen asignada esta rutina (legacy).
   final List<int>? assignedAthletes;
 
@@ -49,6 +52,7 @@ class RoutineModel {
     required this.isPublic,
     this.createdBy,
     this.creatorName,
+    this.isFollowing,
     this.assignedAthletes,
     this.assignedAthletesCount = 0,
     this.assignedAthletesInfo = const [],
@@ -65,6 +69,7 @@ class RoutineModel {
     isPublic: json['is_public'] ?? true,
     createdBy: json['created_by'],
     creatorName: json['creator_name'],
+    isFollowing: json['creator_is_following'],
     assignedAthletes: (json['assigned_athletes'] != null)
         ? (json['assigned_athletes'] as List).map((e) => e as int).toList()
         : [],
@@ -88,4 +93,37 @@ class RoutineModel {
     'is_public': isPublic,
     'exercises': exercises.map((e) => e.toJson()).toList(),
   };
+
+  /// Crea una copia de esta rutina con algunos campos sobrescritos.
+  RoutineModel copyWith({
+    int? id,
+    String? title,
+    String? description,
+    String? category,
+    String? difficulty,
+    bool? isPublic,
+    int? createdBy,
+    String? creatorName,
+    bool? isFollowing,
+    List<int>? assignedAthletes,
+    int? assignedAthletesCount,
+    List<Map<String, dynamic>>? assignedAthletesInfo,
+    List<RoutineExerciseModel>? exercises,
+  }) {
+    return RoutineModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      difficulty: difficulty ?? this.difficulty,
+      isPublic: isPublic ?? this.isPublic,
+      createdBy: createdBy ?? this.createdBy,
+      creatorName: creatorName ?? this.creatorName,
+      isFollowing: isFollowing ?? this.isFollowing,
+      assignedAthletes: assignedAthletes ?? this.assignedAthletes,
+      assignedAthletesCount: assignedAthletesCount ?? this.assignedAthletesCount,
+      assignedAthletesInfo: assignedAthletesInfo ?? this.assignedAthletesInfo,
+      exercises: exercises ?? this.exercises,
+    );
+  }
 }
