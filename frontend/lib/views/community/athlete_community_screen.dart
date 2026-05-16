@@ -311,13 +311,13 @@ class _PublicRoutineCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -326,9 +326,10 @@ class _PublicRoutineCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _AuthorAvatar(initials: initials),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,8 +339,8 @@ class _PublicRoutineCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Botón de Seguir/Siguiendo - solo si no es el post del usuario actual
-              if (!isOwnPost)
+              if (!isOwnPost) ...[
+                const SizedBox(width: AppSpacing.md),
                 _FollowButton(
                   isFollowing: routine.isFollowing ?? false,
                   onFollow: () => viewModel.followCreator(
@@ -351,6 +352,7 @@ class _PublicRoutineCard extends StatelessWidget {
                     routineIndex,
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -359,48 +361,64 @@ class _PublicRoutineCard extends StatelessWidget {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
+                horizontal: AppSpacing.md,
                 vertical: AppSpacing.md,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primaryLight,
-                    AppColors.primaryLight.withValues(alpha: 0.85),
+                    AppColors.primaryLight.withValues(alpha: 0.28),
+                    AppColors.primaryLight.withValues(alpha: 0.18),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: AppRadius.card,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primaryLight.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: AppColors.primaryLight.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.fitness_center_rounded,
-                    color: Colors.white,
-                    size: 20,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      color: AppColors.primary,
+                      size: 21,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
                       routine.title,
                       style: AppTextStyles.bodyText1.copyWith(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white,
-                    size: 20,
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
@@ -423,9 +441,9 @@ class _AuthorAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
-      decoration: const BoxDecoration(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
         color: AppColors.tagBackground,
         shape: BoxShape.circle,
       ),
@@ -433,9 +451,9 @@ class _AuthorAvatar extends StatelessWidget {
         child: Text(
           initials,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.textSecondary,
+            color: AppColors.primary,
           ),
         ),
       ),
@@ -581,7 +599,7 @@ class _FollowButtonState extends State<_FollowButton> {
     _isFollowing = widget.isFollowing;
   }
 
-  void _handleFollowTap() async {
+  Future<void> _handleFollowTap() async {
     setState(() => _isLoading = true);
     try {
       if (_isFollowing) {
@@ -589,13 +607,16 @@ class _FollowButtonState extends State<_FollowButton> {
       } else {
         await widget.onFollow();
       }
+      if (!mounted) return;
       setState(() => _isFollowing = !_isFollowing);
     } catch (e) {
       // Error se maneja en el ViewModel
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -603,18 +624,17 @@ class _FollowButtonState extends State<_FollowButton> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
+      height: 38,
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleFollowTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isFollowing ? AppColors.surface : AppColors.primary,
-          foregroundColor: _isFollowing ? AppColors.primary : Colors.white,
-          side: _isFollowing 
-              ? const BorderSide(color: AppColors.primary)
-              : BorderSide.none,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          elevation: 0,
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.75)),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
         child: _isLoading
@@ -626,9 +646,24 @@ class _FollowButtonState extends State<_FollowButton> {
                   valueColor: AlwaysStoppedAnimation(AppColors.primary),
                 ),
               )
-            : Text(
-                _isFollowing ? 'Siguiendo' : 'Seguir',
-                style: AppTextStyles.bentoUnit,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isFollowing
+                        ? Icons.person_rounded
+                        : Icons.person_add_alt_1_rounded,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isFollowing ? 'Siguiendo' : 'Seguir',
+                    style: AppTextStyles.bentoUnit.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
       ),
     );
