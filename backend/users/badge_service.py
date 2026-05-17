@@ -9,11 +9,12 @@ NOTA: Este servicio reutiliza las relaciones existentes del modelo:
 """
 
 from datetime import timedelta
+
 from django.utils import timezone
-from django.db.models import Count
+
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
-from users.models import Badge, User, UserBadge, AthleteProfile
+from users.models import AthleteProfile, Badge, User, UserBadge
 
 
 class BadgeService:

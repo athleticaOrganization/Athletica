@@ -40,7 +40,6 @@ from .serializers import (
     RegisterSerializer,
     ReminderSerializer,
     UserBadgeSerializer,
-    UserBadgesSummarySerializer,
     UserSerializer,
     WeightLogSerializer,
 )

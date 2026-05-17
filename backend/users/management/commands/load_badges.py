@@ -6,6 +6,7 @@ Uso:
 """
 
 from django.core.management.base import BaseCommand
+
 from users.models import Badge
 
 
@@ -127,6 +128,6 @@ class Command(BaseCommand):
                         )
                     )
 
-        self.stdout.write(self.style.SUCCESS(f"\n✓ Insignias cargadas exitosamente!"))
+        self.stdout.write(self.style.SUCCESS("\n✓ Insignias cargadas exitosamente!"))
         self.stdout.write(self.style.SUCCESS(f"  Creadas: {created_count}"))
         self.stdout.write(self.style.SUCCESS(f"  Actualizadas: {updated_count}"))

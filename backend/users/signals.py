@@ -11,6 +11,7 @@ from django.dispatch import receiver
 
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
+
 from .badge_service import BadgeService
 
 
