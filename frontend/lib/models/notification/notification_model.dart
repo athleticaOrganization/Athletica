@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 enum NotificationType {
   routineAssigned,
   routineUpdated,
+  reminder,
   community,
   followerAdded,
   system,
@@ -33,6 +34,8 @@ class NotificationModel {
         return Icons.star_rounded;
       case NotificationType.routineUpdated:
         return Icons.update_rounded;
+      case NotificationType.reminder:
+        return Icons.alarm_rounded;
       case NotificationType.community:
         return Icons.people_rounded;
       case NotificationType.followerAdded:
@@ -48,6 +51,8 @@ class NotificationModel {
         return Colors.amber;
       case NotificationType.routineUpdated:
         return Colors.blue;
+      case NotificationType.reminder:
+        return Colors.deepOrange;
       case NotificationType.community:
         return Colors.green;
       case NotificationType.followerAdded:
@@ -55,5 +60,32 @@ class NotificationModel {
       default:
         return Colors.grey;
     }
+  }
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'].toString(),
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
+      date: DateTime.parse(json['date']).toLocal(),
+      isRead: json['isRead'] ?? false,
+      type: NotificationType.values.firstWhere(
+        (value) => value.name == json['type'],
+        orElse: () => NotificationType.system,
+      ),
+      relatedId: json['relatedId']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'message': message,
+      'date': date.toIso8601String(),
+      'isRead': isRead,
+      'type': type.name,
+      'relatedId': relatedId,
+    };
   }
 }

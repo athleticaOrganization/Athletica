@@ -1,12 +1,20 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
 
 logger = logging.getLogger(__name__)
+
+
+class IsoDateTimeField(serializers.DateTimeField):
+    def to_representation(self, value):
+        if value is None:
+            return None
+        return value.isoformat()
 
 
 # Serializer para las metas de un atleta.
@@ -82,6 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
             "height",
             "weight",
             "training_goal",
+            "timezone",
             "athlete_profile",
             "coach_profile",
             "is_following",
@@ -105,6 +114,46 @@ class ProfileSettingsSerializer(serializers.Serializer):
     weight = serializers.FloatField(required=False, min_value=1)
     height = serializers.FloatField(required=False, min_value=1)
     training_goal = serializers.ChoiceField(required=False, choices=Goal.GOAL_CHOICES)
+    timezone = serializers.CharField(required=False, max_length=50)
+
+
+class ReminderSerializer(serializers.ModelSerializer):
+    remind_at = IsoDateTimeField()
+    notified_at = IsoDateTimeField(required=False, allow_null=True)
+    created_at = IsoDateTimeField(read_only=True)
+    updated_at = IsoDateTimeField(read_only=True)
+
+    class Meta:
+        model = Reminder
+        fields = [
+            "id",
+            "activity_type",
+            "remind_at",
+            "recurrence",
+            "timezone",
+            "is_active",
+            "notified_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "notified_at", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        remind_at = attrs.get("remind_at")
+        if remind_at is None and self.instance is not None:
+            remind_at = self.instance.remind_at
+
+        if remind_at is None:
+            raise serializers.ValidationError(
+                {"remind_at": "Debes seleccionar una fecha y hora para el recordatorio."}
+            )
+
+        if remind_at <= timezone.now():
+            raise serializers.ValidationError(
+                {"remind_at": "El horario seleccionado es inválido. Debe ser futuro."}
+            )
+
+        return attrs
 
 
 # Serializer para el registro de nuevos usuarios.

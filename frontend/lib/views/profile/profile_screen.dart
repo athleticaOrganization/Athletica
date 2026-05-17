@@ -12,11 +12,13 @@ import '../../theme/app_text_styles.dart';
 import '../../view_models/dashboard/dashboard_view_model.dart';
 import '../auth/login_screen.dart';
 import '../group/groups_screen.dart';
+import '../notifications/reminders_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
+  final VoidCallback? onReminderSaved;
   final int refreshTick;
 
-  const ProfileScreen({super.key, this.refreshTick = 0});
+  const ProfileScreen({super.key, this.onReminderSaved, this.refreshTick = 0});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -557,6 +559,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: Icons.settings,
                             label: 'Editar perfil',
                             onTap: _openSettingsSheet,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildOption(
+                            icon: Icons.alarm_rounded,
+                            label: 'Recordatorios',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RemindersScreen(
+                                    onReminderSaved: widget.onReminderSaved,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 14),
                           _buildOption(

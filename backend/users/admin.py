@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
 
 admin.site.register(Follow)
 
@@ -46,3 +46,10 @@ class WeightLogAdmin(admin.ModelAdmin):
     list_display = ("athlete", "weight", "body_fat", "date")
     list_filter = ("date",)
     search_fields = ("athlete__user__username",)
+
+
+@admin.register(Reminder)
+class ReminderAdmin(admin.ModelAdmin):
+    list_display = ("user", "activity_type", "remind_at", "is_active", "notified_at")
+    list_filter = ("activity_type", "is_active")
+    search_fields = ("user__username", "user__email")

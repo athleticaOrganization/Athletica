@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -18,7 +19,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
 
-from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
 from .serializers import (
     AthleteSearchSerializer,
     FollowSerializer,
@@ -26,9 +27,12 @@ from .serializers import (
     MyTokenObtainPairSerializer,
     ProfileSettingsSerializer,
     RegisterSerializer,
+    ReminderSerializer,
     UserSerializer,
     WeightLogSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(["GET"])
@@ -157,6 +161,7 @@ def ProfileSettingsView(request):
             "weight": user.weight,
             "height": user.height,
             "training_goal": user.training_goal or None,
+            "timezone": user.timezone,
             "role": user.role,
         }
 
@@ -199,6 +204,9 @@ def ProfileSettingsView(request):
 
     if "training_goal" in data:
         user.training_goal = data["training_goal"]
+
+    if "timezone" in data:
+        user.timezone = data["timezone"]
 
     user.save()
 
@@ -341,6 +349,84 @@ def GoalDetailView(request, goal_id):
     elif request.method == "DELETE":
         goal.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def ReminderListCreateView(request):
+    """Lista y crea recordatorios del usuario autenticado."""
+    if request.method == "GET":
+        reminders = Reminder.objects.filter(user=request.user).order_by("remind_at")
+        serializer = ReminderSerializer(reminders, many=True)
+        return Response(serializer.data)
+
+    serializer = ReminderSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAuthenticated])
+def ReminderDetailView(request, reminder_id):
+    """Obtiene, actualiza o elimina un recordatorio del usuario autenticado."""
+    try:
+        reminder = Reminder.objects.get(id=reminder_id, user=request.user)
+    except Reminder.DoesNotExist:
+        return Response({"detail": "Recordatorio no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(ReminderSerializer(reminder).data)
+
+    if request.method == "PUT":
+        serializer = ReminderSerializer(reminder, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    reminder.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ReminderDueView(request):
+    """Retorna recordatorios vencidos sin notificar y los marca como notificados."""
+    now = timezone.now()
+    due_reminders = list(
+        Reminder.objects.filter(
+            user=request.user,
+            is_active=True,
+            remind_at__lte=now,
+            notified_at__isnull=True,
+        ).order_by("remind_at")
+    )
+
+    # Log for debugging: which reminders are considered due
+    if due_reminders:
+        logger.info(
+            "ReminderDueView: %d due reminders for user %s at %s",
+            len(due_reminders),
+            request.user.username,
+            now,
+        )
+        for r in due_reminders:
+            logger.info(
+                " - Reminder id=%s remind_at=%s activity=%s",
+                r.id,
+                r.remind_at,
+                r.activity_type,
+            )
+
+    serializer = ReminderSerializer(due_reminders, many=True)
+    # Mark as notified AFTER serializing to return the data that triggered the notification
+    if due_reminders:
+        Reminder.objects.filter(pk__in=[reminder.pk for reminder in due_reminders]).update(
+            notified_at=now
+        )
+    return Response(serializer.data)
 
 
 # ── Dashboard Coach ───────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from django.urls import reverse
@@ -65,12 +65,14 @@ class TestAIRecommendations:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "User must be an athlete with a profile" in response.data["detail"]
 
-    @patch("google.generativeai.GenerativeModel")
-    def test_ai_service_fallback(self, mock_model, athlete_user, exercises):
+    @patch("routines.ai_service._search_youtube_video", return_value="")
+    @patch("routines.ai_service._get_gemini_model")
+    def test_ai_service_fallback(self, mock_get_model, mock_search_video, athlete_user, exercises):
         from routines.ai_service import generate_exercise_recommendations
 
-        # Simulate API error
-        mock_model.return_value.generate_content.side_effect = Exception("API Error")
+        mock_model = Mock()
+        mock_model.generate_content.side_effect = Exception("API Error")
+        mock_get_model.return_value = mock_model
 
         profile = athlete_user.athleteprofile
         history = []
