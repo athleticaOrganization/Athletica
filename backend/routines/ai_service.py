@@ -1,12 +1,19 @@
 import json
 import os
 
-import google.generativeai as genai
 import requests
+
+try:
+    import google.generativeai as genai
+except ModuleNotFoundError:
+    genai = None
 
 
 def _get_gemini_model():
     """Returns a working Gemini model or None if unavailable."""
+    if genai is None:
+        return None
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "tu_api_key_de_gemini_aqui":
         return None
