@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("routines", "0013_alter_exercise_id_alter_routine_id_and_more"),
         ("routines", "0013_routine_is_public_alter_exercise_id_alter_routine_id_and_more"),

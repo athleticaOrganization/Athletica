@@ -19,7 +19,11 @@ class User(AbstractUser):
     height = models.FloatField(null=True, blank=True)
     weight = models.FloatField(null=True, blank=True)
     training_goal = models.CharField(max_length=30, blank=True, default="")
-    timezone = models.CharField(max_length=50, default="UTC", help_text="IANA timezone (e.g., 'America/Bogota', 'America/New_York')")
+    timezone = models.CharField(
+        max_length=50,
+        default="UTC",
+        help_text="IANA timezone (e.g., 'America/Bogota', 'America/New_York')",
+    )
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
@@ -146,7 +150,9 @@ class Reminder(models.Model):
     activity_type = models.CharField(max_length=20, choices=ACTIVITY_CHOICES)
     remind_at = models.DateTimeField()
     recurrence = models.CharField(max_length=20, choices=RECURRENCE_CHOICES, default="none")
-    timezone = models.CharField(max_length=50, default="UTC", help_text="IANA timezone for this reminder")
+    timezone = models.CharField(
+        max_length=50, default="UTC", help_text="IANA timezone for this reminder"
+    )
     is_active = models.BooleanField(default=True)
     notified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

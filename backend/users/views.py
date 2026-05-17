@@ -374,9 +374,7 @@ def ReminderDetailView(request, reminder_id):
     try:
         reminder = Reminder.objects.get(id=reminder_id, user=request.user)
     except Reminder.DoesNotExist:
-        return Response(
-            {"detail": "Recordatorio no encontrado."}, status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"detail": "Recordatorio no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
         return Response(ReminderSerializer(reminder).data)

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/models/notification/reminder_model.dart';
-import 'package:frontend/repositories/notification/reminder_service.dart';
 
 void main() {
   group('ReminderModel Tests', () {

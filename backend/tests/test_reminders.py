@@ -229,9 +229,7 @@ def test_athlete_with_no_reminders_returns_empty_list(athlete_client):
 
 
 @pytest.mark.django_db
-def test_athlete_cannot_see_other_athlete_reminders(
-    athlete_client, other_athlete, future_datetime
-):
+def test_athlete_cannot_see_other_athlete_reminders(athlete_client, other_athlete, future_datetime):
     """Atleta solo ve sus propios recordatorios, no los de otros."""
     Reminder.objects.create(
         user=other_athlete,
