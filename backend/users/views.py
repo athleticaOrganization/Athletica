@@ -397,10 +397,10 @@ def ReminderDueView(request):
     now = timezone.now()
     due_reminders = list(
         Reminder.objects.filter(
-        user=request.user,
-        is_active=True,
-        remind_at__lte=now,
-        notified_at__isnull=True,
+            user=request.user,
+            is_active=True,
+            remind_at__lte=now,
+            notified_at__isnull=True,
         ).order_by("remind_at")
     )
 
