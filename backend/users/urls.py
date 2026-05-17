@@ -4,6 +4,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     AthleteDashboardView,
     AthleteSearchView,
+    BadgeDetailView,
+    BadgesListView,
+    CheckBadgesView,
     CoachAthleteManagementView,
     CoachDashboardView,
     ComparativeStatsView,
@@ -17,6 +20,7 @@ from .views import (
     ReminderDetailView,
     ReminderDueView,
     ReminderListCreateView,
+    UserBadgesView,
     WeightLogView,
     followUser,
     protected_test,
@@ -55,4 +59,9 @@ urlpatterns = [
     path(
         "api/auth/password-reset-confirm/", PasswordResetConfirmView, name="password_reset_confirm"
     ),
+    # Badge endpoints
+    path("api/badges/", BadgesListView, name="badges_list"),
+    path("api/badges/<int:badge_id>/", BadgeDetailView, name="badge_detail"),
+    path("api/me/badges/", UserBadgesView, name="user_badges"),
+    path("api/me/badges/check/", CheckBadgesView, name="check_badges"),
 ]
