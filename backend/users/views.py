@@ -18,7 +18,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
 
-from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog, Follow
+from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
 from .serializers import (
     AthleteSearchSerializer,
     FollowSerializer,
@@ -428,6 +428,7 @@ def unfollowUser(request, user_id):
     return Response(
         {"detail": "Has dejado de seguir al usuario."}, status=status.HTTP_204_NO_CONTENT
     )
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

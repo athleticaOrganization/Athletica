@@ -51,24 +51,21 @@ class _MainScreenState extends State<MainScreen> {
         _athleteId = (role == 'athlete') ? athleteId : userId;
         _userRole = role;
       });
-      
+
       // Check routine updates using the USER ID (since assigned_athletes are users)
       if (userId != null) {
         if (role == 'athlete') {
           _checkRoutineUpdate(userId);
         }
         _checkNewFollowers();
-        
+
         // Start polling every 5 minutes (single timer for all checks)
-        _pollingTimer = Timer.periodic(
-          const Duration(minutes: 5),
-          (_) {
-            if (role == 'athlete') {
-              _checkRoutineUpdate(userId);
-            }
-            _checkNewFollowers();
-          },
-        );
+        _pollingTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+          if (role == 'athlete') {
+            _checkRoutineUpdate(userId);
+          }
+          _checkNewFollowers();
+        });
       }
     }
   }
@@ -100,7 +97,8 @@ class _MainScreenState extends State<MainScreen> {
                 : "Se han realizado cambios en tu rutina actual.";
 
             // Prevent inserting duplicate top notification
-            final shouldInsert = _notifications.isEmpty ||
+            final shouldInsert =
+                _notifications.isEmpty ||
                 !(_notifications.first.title == title &&
                     _notifications.first.message == message);
 
@@ -134,15 +132,17 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _checkNewFollowers() async {
     try {
-        final String endpoint = _userRole == 'coach'
+      final String endpoint = _userRole == 'coach'
           ? 'dashboard/coach/'
           : 'dashboard/athlete/';
-      
+
       final response = await ApiClient.dio.get(endpoint);
       final int currentFollowersCount = response.data['followers_count'] ?? 0;
-      final int? lastFollowersCount = await TokenStorage.getLastFollowersCount();
+      final int? lastFollowersCount =
+          await TokenStorage.getLastFollowersCount();
 
-      if (lastFollowersCount != null && currentFollowersCount > lastFollowersCount) {
+      if (lastFollowersCount != null &&
+          currentFollowersCount > lastFollowersCount) {
         final newFollowersCount = currentFollowersCount - lastFollowersCount;
 
         if (mounted) {
@@ -152,7 +152,8 @@ class _MainScreenState extends State<MainScreen> {
               : '$newFollowersCount usuarios empezaron a seguirte';
 
           // Prevent inserting duplicate top notification
-          final shouldInsert = _notifications.isEmpty ||
+          final shouldInsert =
+              _notifications.isEmpty ||
               !(_notifications.first.title == title &&
                   _notifications.first.message == message);
 
@@ -181,7 +182,8 @@ class _MainScreenState extends State<MainScreen> {
               ? 'Tienes 1 seguidor'
               : 'Tienes $currentFollowersCount seguidores';
 
-          final shouldInsert = _notifications.isEmpty ||
+          final shouldInsert =
+              _notifications.isEmpty ||
               !(_notifications.first.title == title &&
                   _notifications.first.message == message);
 
@@ -226,7 +228,8 @@ class _MainScreenState extends State<MainScreen> {
         action: SnackBarAction(
           label: "VER",
           textColor: Colors.white,
-          onPressed: () => setState(() => _currentIndex = indexPage), // Ir a rutinas
+          onPressed: () =>
+              setState(() => _currentIndex = indexPage), // Ir a rutinas
         ),
       ),
     );

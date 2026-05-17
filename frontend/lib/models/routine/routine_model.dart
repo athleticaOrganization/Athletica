@@ -121,7 +121,8 @@ class RoutineModel {
       creatorName: creatorName ?? this.creatorName,
       isFollowing: isFollowing ?? this.isFollowing,
       assignedAthletes: assignedAthletes ?? this.assignedAthletes,
-      assignedAthletesCount: assignedAthletesCount ?? this.assignedAthletesCount,
+      assignedAthletesCount:
+          assignedAthletesCount ?? this.assignedAthletesCount,
       assignedAthletesInfo: assignedAthletesInfo ?? this.assignedAthletesInfo,
       exercises: exercises ?? this.exercises,
     );

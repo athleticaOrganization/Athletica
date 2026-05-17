@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 
-enum NotificationType { routineAssigned, routineUpdated, community, followerAdded, system }
+enum NotificationType {
+  routineAssigned,
+  routineUpdated,
+  community,
+  followerAdded,
+  system,
+}
 
 class NotificationModel {
   final String id;

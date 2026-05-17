@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.models import AthleteProfile, Goal, User, WeightLog, Follow
+from users.models import AthleteProfile, Follow, Goal, User, WeightLog
 
 from .ai_service import generate_exercise_recommendations
 from .models import (

@@ -42,7 +42,6 @@ urlpatterns = [
     # Follow/Unfollow endpoints
     path("api/users/<int:user_id>/follow/", followUser, name="follow_user"),
     path("api/users/<int:user_id>/unfollow/", unfollowUser, name="unfollow_user"),
-    
     path(
         "api/dashboard/athlete/comparative-stats/", ComparativeStatsView, name="comparative_stats"
     ),

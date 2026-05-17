@@ -344,9 +344,8 @@ class _PublicRoutineCard extends StatelessWidget {
                 _FollowButton(
                   isFollowing: routine.isFollowing ?? false,
                   onFollow: () => viewModel.followCreator(routine.createdBy!),
-                  onUnfollow: () => viewModel.unfollowCreator(
-                    routine.createdBy!,
-                  ),
+                  onUnfollow: () =>
+                      viewModel.unfollowCreator(routine.createdBy!),
                 ),
               ],
             ],
@@ -599,9 +598,9 @@ class _FollowButtonState extends State<_FollowButton> {
     } catch (e) {
       // Error se maneja en el ViewModel
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (!mounted) return;
       setState(() => _isLoading = false);
