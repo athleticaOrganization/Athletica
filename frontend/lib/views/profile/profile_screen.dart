@@ -1,9 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/api_client.dart';
 import '../../core/token_storage.dart';
+import '../../models/badge/badge_model.dart';
 import '../../models/profile/profile_settings_model.dart';
 import '../../models/profile/comparative_stats_model.dart';
 import '../../models/dashboard/dashboard_model.dart';
+import '../../repositories/badge/badge_repository.dart';
 import '../../repositories/dashboard/dashboard_repository.dart';
 import '../../repositories/profile/profile_repository.dart';
 import '../../theme/app_colors.dart';
@@ -33,6 +37,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   double? _height;
 
   final ProfileRepository _profileRepository = ProfileRepository();
+  final BadgeRepository _badgeRepository = BadgeRepository(
+    baseUrl: ApiClient.baseUrl,
+  );
   final DashboardViewModel _vm = DashboardViewModel();
 
   final _nameCtrl = TextEditingController();
@@ -47,12 +54,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isStatsLoading = false;
   String _statsPeriod = 'monthly';
 
+  bool _isBadgesLoading = false;
+  List<UserBadgeEntry> _unlockedBadges = [];
+
   @override
   void initState() {
     super.initState();
     _lastRefreshTick = widget.refreshTick;
     _loadProfileSettings();
     _loadComparativeStats();
+    _loadUnlockedBadges();
   }
 
   @override
@@ -61,6 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (widget.refreshTick != _lastRefreshTick) {
       _lastRefreshTick = widget.refreshTick;
       _loadProfileSettings();
+      _loadUnlockedBadges();
     }
   }
 
@@ -125,6 +137,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() => _isStatsLoading = false);
       }
     }
+  }
+
+  Future<void> _loadUnlockedBadges() async {
+    setState(() => _isBadgesLoading = true);
+    try {
+      final summary = await _badgeRepository.fetchUserBadgeSummary();
+      if (!mounted) return;
+      setState(() {
+        _unlockedBadges = summary.unlockedBadges;
+        _isBadgesLoading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _unlockedBadges = [];
+          _isBadgesLoading = false;
+        });
+      }
+    }
+  }
+
+  String _badgeAssetPath(BadgeDefinition badge) {
+    return 'assets/images/badges/svg/${badge.svgFilename}';
+  }
+
+  Widget _buildUnlockedBadgesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '🏅 Mis Insignias',
+          style: AppTextStyles.fitnessBold.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_isBadgesLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          )
+        else if (_unlockedBadges.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.card,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: const Text(
+              'Todavía no tienes insignias desbloqueadas.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _unlockedBadges.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.02,
+            ),
+            itemBuilder: (context, index) {
+              final badge = _unlockedBadges[index].badge;
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: AppRadius.card,
+                  boxShadow: AppColors.softShadow,
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    _badgeAssetPath(badge),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 
   Future<void> _saveProfileSettings() async {
@@ -814,6 +914,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 24),
         _buildComparativeStats(),
+        const SizedBox(height: 24),
+        _buildUnlockedBadgesSection(),
       ],
     );
   }

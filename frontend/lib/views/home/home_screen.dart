@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_text_styles.dart';
 import '../../core/token_storage.dart';
 import '../../core/api_client.dart';
+import '../../models/badge/badge_model.dart';
+import '../../repositories/badge/badge_repository.dart';
 import '../../repositories/nutrition/nutrition_service.dart';
 import '../../repositories/routine/workout_repository.dart';
 import '../../repositories/routine/recommendation_repository.dart';
@@ -33,6 +36,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _userName = 'Usuario';
+  final BadgeRepository _badgeRepository = BadgeRepository(
+    baseUrl: ApiClient.baseUrl,
+  );
   final NutritionService _nutritionService = NutritionService();
   final WorkoutRepository _workoutRepository = WorkoutRepository(
     baseUrl: ApiClient.baseUrl,
@@ -59,6 +65,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isAiLoading = true;
   List<ExerciseRecommendation> _aiRecommendations = [];
 
+  bool _isBadgeLoading = true;
+  List<BadgeDefinition> _availableBadges = [];
+  Set<int> _unlockedBadgeIds = {};
+  int _userBadgeCount = 0;
+  BadgeStats _badgeStats = BadgeStats(
+    nutritionStreak: 0,
+    workoutStreak: 0,
+    completeStreak: 0,
+  );
+
   // Real daily stats
   double _todayCalories = 0;
   int _todayMinutes = 0;
@@ -73,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadAiRecommendations();
     _loadDailyStats();
     _loadUserWeight();
+    _loadBadges();
   }
 
   Future<void> _loadUserRole() async {
@@ -88,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (oldWidget.refreshTick != widget.refreshTick ||
         oldWidget.athleteId != widget.athleteId) {
       _loadCalendarActivity();
+      _loadBadges();
+      _loadDailyStats();
     }
   }
 
@@ -224,6 +243,62 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadBadges() async {
+    if (!mounted) return;
+    setState(() => _isBadgeLoading = true);
+
+    try {
+      final results = await Future.wait([
+        _badgeRepository.fetchAvailableBadges(),
+        _badgeRepository.fetchUserBadgeSummary(),
+      ]);
+
+      final availableBadges = results[0] as List<BadgeDefinition>;
+      final summary = results[1] as BadgeSummaryResponse;
+      final unlockedIds = summary.unlockedBadges
+          .map((item) => item.badge.id)
+          .toSet();
+
+      if (!mounted) return;
+
+      setState(() {
+        _availableBadges = availableBadges;
+        _unlockedBadgeIds = unlockedIds;
+        _userBadgeCount = summary.totalBadges;
+        _badgeStats = summary.stats;
+        _isBadgeLoading = false;
+      });
+
+      if (summary.newlyAwarded.isNotEmpty && mounted) {
+        final names = summary.newlyAwarded
+            .map((badge) => badge.name)
+            .join(', ');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nuevo logro desbloqueado: $names'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _availableBadges = [];
+          _unlockedBadgeIds = {};
+          _userBadgeCount = 0;
+          _badgeStats = BadgeStats(
+            nutritionStreak: 0,
+            workoutStreak: 0,
+            completeStreak: 0,
+          );
+          _isBadgeLoading = false;
+        });
+      }
+      debugPrint('ERROR fetching badges: $e');
+    }
+  }
+
   String _formatDate(DateTime date) {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
@@ -256,6 +331,368 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return streak;
+  }
+
+  List<BadgeDefinition> get _previewBadges {
+    const typeOrder = ['alimentacion', 'ejercicio', 'completa', 'logros'];
+    final preview = <BadgeDefinition>[];
+
+    for (final type in typeOrder) {
+      final badge =
+          _availableBadges.where((item) => item.badgeType == type).toList()
+            ..sort((a, b) => a.level.compareTo(b.level));
+      if (badge.isNotEmpty) {
+        preview.add(badge.first);
+      }
+    }
+
+    return preview;
+  }
+
+  bool _isBadgeUnlocked(BadgeDefinition badge) {
+    if (_unlockedBadgeIds.contains(badge.id)) {
+      return true;
+    }
+
+    switch (badge.badgeType) {
+      case 'alimentacion':
+        return _badgeStats.nutritionStreak >= badge.level;
+      case 'ejercicio':
+        return _badgeStats.workoutStreak >= badge.level;
+      case 'completa':
+        return _badgeStats.completeStreak >= badge.level;
+      case 'logros':
+        return _userBadgeCount >= badge.level;
+      default:
+        return false;
+    }
+  }
+
+  Color _badgeAccentColor(String badgeType) {
+    switch (badgeType) {
+      case 'alimentacion':
+        return const Color(0xFF22C55E);
+      case 'ejercicio':
+        return const Color(0xFFFF6B35);
+      case 'completa':
+        return const Color(0xFF06B6D4);
+      case 'logros':
+        return const Color(0xFF8B5CF6);
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  String _badgeAssetPath(BadgeDefinition badge) {
+    return 'assets/images/badges/svg/${badge.svgFilename}';
+  }
+
+  String _badgeProgressLabel(BadgeDefinition badge) {
+    switch (badge.badgeType) {
+      case 'alimentacion':
+        return '${_badgeStats.nutritionStreak}/${badge.level} días';
+      case 'ejercicio':
+        return '${_badgeStats.workoutStreak}/${badge.level} días';
+      case 'completa':
+        return '${_badgeStats.completeStreak}/${badge.level} días';
+      case 'logros':
+        return '$_userBadgeCount/${badge.level} logros';
+      default:
+        return 'Disponible';
+    }
+  }
+
+  Widget _buildBadgeSvg(BadgeDefinition badge, {double size = 74}) {
+    final unlocked = _isBadgeUnlocked(badge);
+    final assetPath = _badgeAssetPath(badge);
+
+    return Opacity(
+      opacity: unlocked ? 1 : 0.38,
+      child: SvgPicture.asset(
+        assetPath,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        colorFilter: unlocked
+            ? null
+            : const ColorFilter.matrix(<double>[
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+              ]),
+      ),
+    );
+  }
+
+  Widget _buildBadgeCard(
+    BadgeDefinition badge, {
+    bool compact = false,
+    VoidCallback? onTap,
+  }) {
+    final unlocked = _isBadgeUnlocked(badge);
+    final accent = _badgeAccentColor(badge.badgeType);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: compact ? 150 : null,
+        padding: EdgeInsets.all(compact ? 14 : 18),
+        decoration: BoxDecoration(
+          gradient: unlocked
+              ? LinearGradient(
+                  colors: [accent.withValues(alpha: 0.12), Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [Colors.white, Colors.white.withValues(alpha: 0.96)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: AppRadius.card,
+          border: Border.all(
+            color: unlocked ? accent.withValues(alpha: 0.28) : AppColors.border,
+          ),
+          boxShadow: AppColors.softShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: unlocked ? 0.14 : 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: _buildBadgeSvg(badge, size: compact ? 62 : 78),
+                ),
+                const Spacer(),
+                Icon(
+                  unlocked ? Icons.verified_rounded : Icons.lock_rounded,
+                  color: unlocked ? accent : AppColors.buttonDisabledText,
+                  size: 18,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              badge.name,
+              maxLines: compact ? 2 : 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.fitnessBold.copyWith(
+                color: unlocked
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                fontSize: compact ? 13 : 15,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              badge.badgeTypeDisplay,
+              style: TextStyle(
+                color: unlocked ? accent : AppColors.buttonDisabledText,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _badgeProgressLabel(badge),
+              style: TextStyle(
+                color: unlocked
+                    ? AppColors.textSecondary
+                    : AppColors.buttonDisabledText,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAllBadgesSheet() {
+    if (_availableBadges.isEmpty) return;
+
+    final badges = List<BadgeDefinition>.from(_availableBadges)
+      ..sort((a, b) {
+        final typeCompare = a.badgeType.compareTo(b.badgeType);
+        if (typeCompare != 0) return typeCompare;
+        return a.level.compareTo(b.level);
+      });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: AppColors.deepShadow,
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 46,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Todos los logros disponibles',
+                      style: AppTextStyles.fitnessBold.copyWith(
+                        fontSize: 22,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Se muestran en color los logros que ya cumpliste y en gris los bloqueados.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: badges.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: 0.86,
+                          ),
+                      itemBuilder: (context, index) {
+                        final badge = badges[index];
+                        return _buildBadgeCard(badge, onTap: null);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBadgesSection() {
+    if (_isBadgeLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_availableBadges.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.whiteGlass,
+          borderRadius: AppRadius.card,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        ),
+        child: const Text(
+          'Todavía no hay logros configurados.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    final previewBadges = _previewBadges;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle(
+          '🏅 LOGROS Y DESAFÍOS',
+          actionLabel: 'VER MÁS LOGROS',
+          onAction: _showAllBadgesSheet,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Vista previa de los 4 temas principales. Los logros en color ya están desbloqueados.',
+          style: TextStyle(
+            color: AppColors.textSecondary.withValues(alpha: 0.9),
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (previewBadges.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.whiteGlass,
+              borderRadius: AppRadius.card,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Text(
+              'Aún no se cargan badges de vista previa.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          SizedBox(
+            height: 205,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              itemCount: previewBadges.length,
+              separatorBuilder: (_, index) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                return _buildBadgeCard(
+                  previewBadges[index],
+                  compact: true,
+                  onTap: _showAllBadgesSheet,
+                );
+              },
+            ),
+          ),
+      ],
+    );
   }
 
   void _showExerciseDetailSheet(ExerciseRecommendation rec) {
@@ -579,6 +1016,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildAiRecommendations(),
                   ],
+                  const SizedBox(height: 32),
+                  _buildBadgesSection(),
                   const SizedBox(height: 120),
                 ],
               ),
@@ -768,13 +1207,37 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: AppTextStyles.fitnessBold.copyWith(
-        color: AppColors.textPrimary,
-        letterSpacing: 1.0,
-      ),
+  Widget _buildSectionTitle(
+    String title, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final hasAction = actionLabel != null && onAction != null;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: AppTextStyles.fitnessBold.copyWith(
+              color: AppColors.textPrimary,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+        if (hasAction)
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            ),
+          ),
+      ],
     );
   }
 

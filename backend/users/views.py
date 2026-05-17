@@ -19,15 +19,27 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
 
-from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
+from .models import (
+    AthleteProfile,
+    Badge,
+    CoachProfile,
+    Follow,
+    Goal,
+    Reminder,
+    User,
+    UserBadge,
+    WeightLog,
+)
 from .serializers import (
     AthleteSearchSerializer,
+    BadgeSerializer,
     FollowSerializer,
     GoalSerializer,
     MyTokenObtainPairSerializer,
     ProfileSettingsSerializer,
     RegisterSerializer,
     ReminderSerializer,
+    UserBadgeSerializer,
     UserSerializer,
     WeightLogSerializer,
 )
@@ -712,3 +724,117 @@ def PasswordResetConfirmView(request):
         return Response(
             {"detail": "El token es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST
         )
+
+
+# ============= BADGE ENDPOINTS =============
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def BadgesListView(request):
+    """
+    Lista todas las insignias disponibles en el sistema.
+    """
+    badges = Badge.objects.all().order_by("badge_type", "level")
+    serializer = BadgeSerializer(badges, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def BadgeDetailView(request, badge_id):
+    """
+    Obtiene los detalles de una insignia específica.
+    """
+    try:
+        badge = Badge.objects.get(id=badge_id)
+    except Badge.DoesNotExist:
+        return Response(
+            {"detail": "Insignia no encontrada."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = BadgeSerializer(badge)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def UserBadgesView(request):
+    """
+    Obtiene las insignias desbloqueadas del usuario autenticado.
+    Incluye resumen de stats y total de badges.
+    """
+    from .badge_service import BadgeService
+
+    user = request.user
+
+    # Validar que el usuario tenga AthleteProfile
+    try:
+        user.athleteprofile
+    except AthleteProfile.DoesNotExist:
+        return Response(
+            {"detail": "Solo los atletas pueden acceder a sus insignias."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Obtener badges desbloqueados
+    user_badges = (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
+    )
+
+    # Validar y otorgar nuevos badges si aplica
+    new_badges = BadgeService.check_and_award_badges(user)
+
+    # Si se otorgaron nuevos badges, refrescar la lista
+    if new_badges:
+        user_badges = (
+            UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
+        )
+
+    # Construir respuesta con información completa
+    summary = {
+        "total_badges": user_badges.count(),
+        "unlocked_badges": UserBadgeSerializer(user_badges, many=True).data,
+        "newly_awarded": BadgeSerializer(new_badges, many=True).data,
+        "stats": {
+            "nutrition_streak": BadgeService.get_nutrition_streak(user),
+            "workout_streak": BadgeService.get_workout_streak(user),
+            "complete_streak": BadgeService.get_complete_streak(user),
+        },
+    }
+
+    return Response(summary, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def CheckBadgesView(request):
+    """
+    Valida manualmente las insignias del usuario.
+    Otorga automáticamente las insignias que cumplan criterios.
+    Retorna las insignias recién otorgadas.
+    """
+    from .badge_service import BadgeService
+
+    user = request.user
+
+    # Validar que el usuario tenga AthleteProfile
+    try:
+        user.athleteprofile
+    except AthleteProfile.DoesNotExist:
+        return Response(
+            {"detail": "Solo los atletas pueden acceder a sus insignias."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Validar y otorgar nuevos badges
+    new_badges = BadgeService.check_and_award_badges(user)
+
+    return Response(
+        {
+            "detail": f"Se validaron las insignias. {len(new_badges)} nuevas insignias otorgadas.",
+            "newly_awarded": BadgeSerializer(new_badges, many=True).data,
+        },
+        status=status.HTTP_200_OK,
+    )
