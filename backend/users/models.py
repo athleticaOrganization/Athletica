@@ -133,7 +133,7 @@ class Reminder(models.Model):
         ("training", "Training"),
         ("nutrition", "Nutrition"),
     )
-    
+
     RECURRENCE_CHOICES = (
         ("none", "None"),  # Una sola vez
         ("daily", "Daily"),  # Cada día
@@ -162,37 +162,36 @@ class Reminder(models.Model):
     def is_due(self):
         if not self.is_active:
             return False
-        
+
         now = timezone.now()
-        
+
         # Para recordatorios sin recurrencia: notificación única
         if self.recurrence == "none":
             return self.remind_at <= now and self.notified_at is None
-        
+
         # Para recordatorios recurrentes: verificar si es tiempo de notificar
         # Primera vez: si remind_at ha llegado y no se ha notificado
         if self.notified_at is None:
             return self.remind_at <= now
-        
+
         # Siguientes veces: calcular si debe notificarse nuevamente
         # Esto se evaluará cada vez que se haga polling
-        from dateutil.relativedelta import relativedelta
-        
+
         next_due = self._calculate_next_due_time()
         return next_due <= now
-    
+
     def _calculate_next_due_time(self):
         """Calcula el próximo tiempo de notificación basado en la recurrencia."""
         from dateutil.relativedelta import relativedelta
-        
+
         if self.recurrence == "none":
             return self.remind_at
-        
+
         if self.notified_at is None:
             return self.remind_at
-        
+
         last_notified = self.notified_at
-        
+
         if self.recurrence == "daily":
             return last_notified + relativedelta(days=1)
         elif self.recurrence == "weekly":
@@ -201,7 +200,7 @@ class Reminder(models.Model):
             return last_notified + relativedelta(weeks=2)
         elif self.recurrence == "monthly":
             return last_notified + relativedelta(months=1)
-        
+
         return self.remind_at
 
 

@@ -179,7 +179,13 @@ void main() {
     });
 
     test('ReminderModel supports all recurrence types', () {
-      final recurrenceTypes = ['none', 'daily', 'weekly', 'biweekly', 'monthly'];
+      final recurrenceTypes = [
+        'none',
+        'daily',
+        'weekly',
+        'biweekly',
+        'monthly',
+      ];
 
       for (final recurrence in recurrenceTypes) {
         final json = {

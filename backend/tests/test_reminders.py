@@ -1,7 +1,8 @@
+from datetime import timedelta
+
 import pytest
-from datetime import datetime, timedelta
-from rest_framework.test import APIClient
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from users.models import AthleteProfile, Reminder, User
 

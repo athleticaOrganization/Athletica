@@ -18,11 +18,7 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onReminderSaved;
   final int refreshTick;
 
-  const ProfileScreen({
-    super.key,
-    this.onReminderSaved,
-    this.refreshTick = 0,
-  });
+  const ProfileScreen({super.key, this.onReminderSaved, this.refreshTick = 0});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();

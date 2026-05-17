@@ -170,10 +170,7 @@ class NotificationsScreen extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => onDeleteNotification(notification.id),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textHint,
-                    ),
+                    icon: Icon(Icons.close_rounded, color: AppColors.textHint),
                   ),
                 ],
               ),

@@ -103,9 +103,13 @@ class TokenStorage {
     return prefs.getInt(_lastRoutineKey);
   }
 
-  static Future<void> saveNotifications(List<NotificationModel> notifications) async {
+  static Future<void> saveNotifications(
+    List<NotificationModel> notifications,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    final payload = notifications.map((notification) => notification.toJson()).toList();
+    final payload = notifications
+        .map((notification) => notification.toJson())
+        .toList();
     await prefs.setString(_notificationsKey, jsonEncode(payload));
   }
 

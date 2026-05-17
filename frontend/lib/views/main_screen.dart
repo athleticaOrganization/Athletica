@@ -121,7 +121,9 @@ class _MainScreenState extends State<MainScreen> {
       // Debug: print when received
       try {
         // ignore: avoid_print
-        print('MainScreen._checkDueReminders -> received ${dueReminders.length} due reminders');
+        print(
+          'MainScreen._checkDueReminders -> received ${dueReminders.length} due reminders',
+        );
       } catch (_) {}
       if (!mounted || dueReminders.isEmpty) return;
 
@@ -136,9 +138,7 @@ class _MainScreenState extends State<MainScreen> {
           continue;
         }
 
-        newReminderNotifications.add(
-          _buildReminderNotification(reminder),
-        );
+        newReminderNotifications.add(_buildReminderNotification(reminder));
       }
 
       if (newReminderNotifications.isEmpty) return;
@@ -164,7 +164,9 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _syncNotifiedRemindersToNotifications() async {
     try {
       final reminders = await _reminderService.getReminders();
-      final notifiedReminders = reminders.where((reminder) => reminder.notifiedAt != null);
+      final notifiedReminders = reminders.where(
+        (reminder) => reminder.notifiedAt != null,
+      );
       if (notifiedReminders.isEmpty || !mounted) {
         return;
       }
@@ -247,14 +249,18 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _checkRoutineUpdate(int userId) async {
     try {
-      final response = await ApiClient.dio.get('routines/athlete/$userId/active/');
+      final response = await ApiClient.dio.get(
+        'routines/athlete/$userId/active/',
+      );
       final int? currentRoutineId = response.data['id'];
       final int? lastRoutineId = await TokenStorage.getLastRoutineId();
 
       if (currentRoutineId != null) {
         if (currentRoutineId != lastRoutineId && mounted) {
           final isFirstTime = lastRoutineId == null;
-          final title = isFirstTime ? 'Nueva Rutina Asignada' : 'Rutina Actualizada';
+          final title = isFirstTime
+              ? 'Nueva Rutina Asignada'
+              : 'Rutina Actualizada';
           final message = isFirstTime
               ? 'Tu entrenador te ha asignado un nuevo plan de entrenamiento.'
               : 'Se han realizado cambios en tu rutina actual.';
@@ -329,7 +335,10 @@ class _MainScreenState extends State<MainScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                  const Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -402,10 +411,13 @@ class _MainScreenState extends State<MainScreen> {
               ),
             );
             setState(() {
-              _notifications.removeWhere((notification) => notification.id == notificationId);
+              _notifications.removeWhere(
+                (notification) => notification.id == notificationId,
+              );
             });
             TokenStorage.saveNotifications(_notifications);
-            if (notification.type == NotificationType.reminder && notification.relatedId != null) {
+            if (notification.type == NotificationType.reminder &&
+                notification.relatedId != null) {
               final reminderId = int.tryParse(notification.relatedId!);
               if (reminderId != null) {
                 TokenStorage.addShownReminderId(reminderId);
@@ -426,13 +438,17 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _checkNewFollowers() async {
     try {
-      final String endpoint = _userRole == 'coach' ? 'dashboard/coach/' : 'dashboard/athlete/';
+      final String endpoint = _userRole == 'coach'
+          ? 'dashboard/coach/'
+          : 'dashboard/athlete/';
 
       final response = await ApiClient.dio.get(endpoint);
       final int currentFollowersCount = response.data['followers_count'] ?? 0;
-      final int? lastFollowersCount = await TokenStorage.getLastFollowersCount();
+      final int? lastFollowersCount =
+          await TokenStorage.getLastFollowersCount();
 
-      if (lastFollowersCount != null && currentFollowersCount > lastFollowersCount) {
+      if (lastFollowersCount != null &&
+          currentFollowersCount > lastFollowersCount) {
         final newFollowersCount = currentFollowersCount - lastFollowersCount;
 
         if (mounted) {
@@ -541,7 +557,10 @@ class _MainScreenState extends State<MainScreen> {
     RoutinesListScreen(key: _routinesKey),
     _buildNutritionScreen(),
     _buildCommunityOrAthletesScreen(),
-    ProfileScreen(onReminderSaved: _checkDueReminders, refreshTick: _profileRefreshTick),
+    ProfileScreen(
+      onReminderSaved: _checkDueReminders,
+      refreshTick: _profileRefreshTick,
+    ),
   ];
 
   Widget _buildNutritionScreen() {

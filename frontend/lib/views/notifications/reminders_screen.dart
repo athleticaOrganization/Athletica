@@ -121,8 +121,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final d = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    final t = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final d =
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    final t =
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     return '$d • $t';
   }
 
@@ -181,7 +183,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _openReminderForm(reminder: reminder),
+                          onPressed: () =>
+                              _openReminderForm(reminder: reminder),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -309,10 +312,10 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
       }
 
       if (!mounted) return;
-      
+
       // Dispara el callback para sincronizar recordatorios en MainScreen
       widget.onReminderSaved?.call();
-      
+
       Navigator.pop(context, true);
     } on DioException catch (e) {
       final serverMessage = e.response?.data?['remind_at'];
@@ -361,7 +364,10 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
             children: [
               Text(
                 _isEdit ? 'Editar recordatorio' : 'Nuevo recordatorio',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -397,11 +403,26 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
                         ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'none', child: Text('Una sola vez')),
-                        DropdownMenuItem(value: 'daily', child: Text('Diariamente')),
-                        DropdownMenuItem(value: 'weekly', child: Text('Semanalmente')),
-                        DropdownMenuItem(value: 'biweekly', child: Text('Cada 2 semanas')),
-                        DropdownMenuItem(value: 'monthly', child: Text('Mensualmente')),
+                        DropdownMenuItem(
+                          value: 'none',
+                          child: Text('Una sola vez'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'daily',
+                          child: Text('Diariamente'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'weekly',
+                          child: Text('Semanalmente'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'biweekly',
+                          child: Text('Cada 2 semanas'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'monthly',
+                          child: Text('Mensualmente'),
+                        ),
                       ],
                       onChanged: (value) => setState(() => _recurrence = value),
                     ),
@@ -418,13 +439,34 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 'UTC', child: Text('UTC')),
-                        DropdownMenuItem(value: 'America/Bogota', child: Text('Colombia')),
-                        DropdownMenuItem(value: 'America/New_York', child: Text('Nueva York')),
-                        DropdownMenuItem(value: 'America/Los_Angeles', child: Text('Los Ángeles')),
-                        DropdownMenuItem(value: 'Europe/London', child: Text('Londres')),
-                        DropdownMenuItem(value: 'Europe/Paris', child: Text('París')),
-                        DropdownMenuItem(value: 'Asia/Tokyo', child: Text('Tokio')),
-                        DropdownMenuItem(value: 'Australia/Sydney', child: Text('Sydney')),
+                        DropdownMenuItem(
+                          value: 'America/Bogota',
+                          child: Text('Colombia'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'America/New_York',
+                          child: Text('Nueva York'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'America/Los_Angeles',
+                          child: Text('Los Ángeles'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Europe/London',
+                          child: Text('Londres'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Europe/Paris',
+                          child: Text('París'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Asia/Tokyo',
+                          child: Text('Tokio'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Australia/Sydney',
+                          child: Text('Sydney'),
+                        ),
                       ],
                       onChanged: (value) => setState(() => _timezone = value),
                     ),
