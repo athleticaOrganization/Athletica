@@ -8,6 +8,7 @@ class TokenStorage {
   static const _nameKey = 'user_name';
   static const _roleKey = 'user_role';
   static const _lastRoutineKey = 'last_routine_id';
+  static const _lastFollowersCountKey = 'last_followers_count';
 
   static Future<void> saveTokens({
     required String access,
@@ -78,6 +79,7 @@ class TokenStorage {
     await prefs.remove(_nameKey);
     await prefs.remove(_roleKey);
     await prefs.remove(_lastRoutineKey);
+    await prefs.remove(_lastFollowersCountKey);
   }
 
   static Future<void> saveLastRoutineId(int? id) async {
@@ -92,5 +94,15 @@ class TokenStorage {
   static Future<int?> getLastRoutineId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_lastRoutineKey);
+  }
+
+  static Future<void> saveLastFollowersCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastFollowersCountKey, count);
+  }
+
+  static Future<int?> getLastFollowersCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastFollowersCountKey);
   }
 }

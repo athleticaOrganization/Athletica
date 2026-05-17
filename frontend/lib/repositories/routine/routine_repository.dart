@@ -238,4 +238,36 @@ class RoutineRepository {
       throw Exception('Error al asignar rutina: ${e.message}');
     }
   }
+
+  /// Sigue a un usuario (creador de rutina).
+  Future<void> followUser(int userId) async {
+    try {
+      final response = await _dio.post('users/$userId/follow/');
+      if (response.statusCode != 201) {
+        throw Exception('Fallo al seguir al usuario.');
+      }
+    } on DioException catch (e) {
+      final responseData = e.response?.data;
+      final errorMsg = responseData is Map<String, dynamic>
+          ? (responseData['detail']?.toString() ?? 'Error al seguir usuario')
+          : (responseData?.toString() ?? 'Error al seguir usuario');
+      throw Exception(errorMsg);
+    }
+  }
+
+  /// Deja de seguir a un usuario (creador de rutina).
+  Future<void> unfollowUser(int userId) async {
+    try {
+      final response = await _dio.delete('users/$userId/unfollow/');
+      if (response.statusCode != 204) {
+        throw Exception('Fallo al dejar de seguir al usuario.');
+      }
+    } on DioException catch (e) {
+      final responseData = e.response?.data;
+      final errorMsg = responseData is Map<String, dynamic>
+          ? (responseData['detail']?.toString() ?? 'Error al dejar de seguir')
+          : (responseData?.toString() ?? 'Error al dejar de seguir');
+      throw Exception(errorMsg);
+    }
+  }
 }

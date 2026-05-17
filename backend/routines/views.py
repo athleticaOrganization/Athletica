@@ -10,7 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.models import AthleteProfile, Goal, User, WeightLog
+from users.models import AthleteProfile, Follow, Goal, User, WeightLog
 
 from .ai_service import generate_exercise_recommendations
 from .models import (
@@ -100,8 +100,23 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
         Ruta: GET /api/routines/public/
         Devuelve la lista de rutinas cuyo campo `is_public` es True.
         """
-        routines = self.queryset.filter(is_public=True)
-        serializer = RoutineDetailSerializer(routines, many=True)
+        routines = (
+            self.queryset.filter(is_public=True)
+            .select_related("created_by")
+            .prefetch_related("assigned_athletes")
+        )
+
+        if request.user.is_authenticated:
+            follow_subquery = Follow.objects.filter(
+                follower_id=request.user.id, following_id=models.OuterRef("created_by_id")
+            )
+            routines = routines.annotate(is_followed_by_request_user=models.Exists(follow_subquery))
+        else:
+            routines = routines.annotate(
+                is_followed_by_request_user=models.Value(False, output_field=models.BooleanField())
+            )
+
+        serializer = self.get_serializer(routines, many=True)
         return Response(serializer.data)
 
     @decorators.action(detail=True, methods=["patch"])
@@ -128,7 +143,7 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
             for i, item in enumerate(serializer.validated_data)
         ]
         RoutineExercise.objects.bulk_create(new_exercises)
-        return Response(RoutineDetailSerializer(routine).data)
+        return Response(self.get_serializer(routine).data)
 
     @decorators.action(detail=True, methods=["post"], url_path="assign")
     def assign_to_athletes(self, request, pk=None):
@@ -184,7 +199,7 @@ class RoutineViewSet(viewsets.ModelViewSet):  # NOSONAR
         routine = Routine.objects.filter(assigned_athletes__id=athlete_id).first()
         if not routine:
             return Response({"detail": "Sin rutina asignada."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(RoutineDetailSerializer(routine).data)
+        return Response(self.get_serializer(routine).data)
 
     @decorators.action(
         detail=True, methods=["delete"], url_path="exercises/(?P<exercise_id>[^/.]+)"

@@ -15,7 +15,9 @@ from .views import (
     ProfileSettingsView,
     RegisterView,
     WeightLogView,
+    followUser,
     protected_test,
+    unfollowUser,
 )
 
 urlpatterns = [
@@ -37,6 +39,9 @@ urlpatterns = [
     path("api/athlete/weight-logs/", WeightLogView, name="weight_logs"),
     path("api/athlete/goals/", GoalLogView, name="goals"),
     path("api/athlete/goals/<int:goal_id>/", GoalDetailView, name="goal_detail"),
+    # Follow/Unfollow endpoints
+    path("api/users/<int:user_id>/follow/", followUser, name="follow_user"),
+    path("api/users/<int:user_id>/unfollow/", unfollowUser, name="unfollow_user"),
     path(
         "api/dashboard/athlete/comparative-stats/", ComparativeStatsView, name="comparative_stats"
     ),

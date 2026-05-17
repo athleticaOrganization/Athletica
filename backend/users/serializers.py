@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AthleteProfile, CoachProfile, Goal, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Follow, Goal, User, WeightLog
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     athlete_profile = AthleteProfileSerializer(read_only=True)
     coach_profile = CoachProfileSerializer(read_only=True)
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -83,7 +84,19 @@ class UserSerializer(serializers.ModelSerializer):
             "training_goal",
             "athlete_profile",
             "coach_profile",
+            "is_following",
         ]
+
+    def get_is_following(self, obj):
+        """Verifica si el usuario logueado sigue a este usuario"""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        if request.user.id == obj.id:
+            return None  # No puede seguirse a sí mismo
+
+        return Follow.objects.filter(follower=request.user, following=obj).exists()
 
 
 class ProfileSettingsSerializer(serializers.Serializer):
@@ -217,3 +230,21 @@ class AthleteSearchSerializer(serializers.ModelSerializer):
 
         routine = Routine.objects.filter(assigned_athletes=obj).first()
         return routine.title if routine else None
+
+
+# Serializer para gestionar los seguimientos de usuarios
+class FollowSerializer(serializers.ModelSerializer):
+    follower_username = serializers.CharField(source="follower.username", read_only=True)
+    following_username = serializers.CharField(source="following.username", read_only=True)
+
+    class Meta:
+        model = Follow
+        fields = [
+            "id",
+            "follower",
+            "following",
+            "follower_username",
+            "following_username",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]

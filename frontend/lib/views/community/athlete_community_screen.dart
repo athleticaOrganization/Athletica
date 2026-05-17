@@ -110,6 +110,7 @@ class CommunityScreenState extends State<CommunityScreen> {
           child: _PublicRoutineCard(
             routine: routine,
             onTapTitle: () => _showRoutineDetails(context, routine),
+            viewModel: viewModel,
           ),
         );
       }, childCount: viewModel.publicRoutines.length),
@@ -293,24 +294,30 @@ class _CommunityHeader extends StatelessWidget {
 class _PublicRoutineCard extends StatelessWidget {
   final RoutineModel routine;
   final VoidCallback onTapTitle;
+  final PublicRoutinesViewModel viewModel;
 
-  const _PublicRoutineCard({required this.routine, required this.onTapTitle});
+  const _PublicRoutineCard({
+    required this.routine,
+    required this.onTapTitle,
+    required this.viewModel,
+  });
 
   @override
   Widget build(BuildContext context) {
     final creatorName = routine.creatorName ?? 'Usuario';
     final initials = PublicRoutinesViewModel.getInitials(creatorName);
+    final isOwnPost = viewModel.isOwnRoutine(routine);
 
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -319,9 +326,10 @@ class _PublicRoutineCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _AuthorAvatar(initials: initials),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.lg),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,6 +339,15 @@ class _PublicRoutineCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!isOwnPost) ...[
+                const SizedBox(width: AppSpacing.md),
+                _FollowButton(
+                  isFollowing: routine.isFollowing ?? false,
+                  onFollow: () => viewModel.followCreator(routine.createdBy!),
+                  onUnfollow: () =>
+                      viewModel.unfollowCreator(routine.createdBy!),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -339,48 +356,64 @@ class _PublicRoutineCard extends StatelessWidget {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
+                horizontal: AppSpacing.md,
                 vertical: AppSpacing.md,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primaryLight,
-                    AppColors.primaryLight.withValues(alpha: 0.85),
+                    AppColors.primaryLight.withValues(alpha: 0.28),
+                    AppColors.primaryLight.withValues(alpha: 0.18),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: AppRadius.card,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primaryLight.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    color: AppColors.primaryLight.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.fitness_center_rounded,
-                    color: Colors.white,
-                    size: 20,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      color: AppColors.primary,
+                      size: 21,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
                       routine.title,
                       style: AppTextStyles.bodyText1.copyWith(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white,
-                    size: 20,
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
@@ -403,9 +436,9 @@ class _AuthorAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
-      decoration: const BoxDecoration(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
         color: AppColors.tagBackground,
         shape: BoxShape.circle,
       ),
@@ -413,9 +446,9 @@ class _AuthorAvatar extends StatelessWidget {
         child: Text(
           initials,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.textSecondary,
+            color: AppColors.primary,
           ),
         ),
       ),
@@ -528,6 +561,97 @@ class _ExerciseDetailTile extends StatelessWidget {
             child: Text(exercise.exercise.name, style: AppTextStyles.bodyText1),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  FOLLOW BUTTON
+// ─────────────────────────────────────────────
+class _FollowButton extends StatefulWidget {
+  final bool isFollowing;
+  final Future<void> Function() onFollow;
+  final Future<void> Function() onUnfollow;
+
+  const _FollowButton({
+    required this.isFollowing,
+    required this.onFollow,
+    required this.onUnfollow,
+  });
+
+  @override
+  State<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends State<_FollowButton> {
+  bool _isLoading = false;
+
+  Future<void> _handleFollowTap() async {
+    setState(() => _isLoading = true);
+    try {
+      if (widget.isFollowing) {
+        await widget.onUnfollow();
+      } else {
+        await widget.onFollow();
+      }
+    } catch (e) {
+      // Error se maneja en el ViewModel
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleFollowTap,
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.75)),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.isFollowing
+                        ? Icons.person_rounded
+                        : Icons.person_add_alt_1_rounded,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.isFollowing ? 'Siguiendo' : 'Seguir',
+                    style: AppTextStyles.bentoUnit.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

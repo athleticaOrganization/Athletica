@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import F, Q
 from django.utils import timezone
 
 
@@ -124,3 +125,27 @@ class WeightLog(models.Model):
 
     def __str__(self):
         return f"{self.athlete.user.username} - {self.weight}kg ({self.date})"
+
+
+# Registro de un Follow, quien es el que lo hace (follower), y a quién lo hace (following)
+class Follow(models.Model):
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="following")
+
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followers")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            # Evita que no hayan duplicados de followers
+            models.UniqueConstraint(
+                fields=["follower", "following"], name="unique_follow_relationship"
+            ),
+            # Evita que user se siga a si mismo
+            models.CheckConstraint(
+                condition=~Q(follower=F("following")), name="prevent_self_follow"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.follower} follows {self.following}"
