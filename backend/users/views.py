@@ -395,18 +395,20 @@ def ReminderDetailView(request, reminder_id):
 def ReminderDueView(request):
     """Retorna recordatorios vencidos sin notificar y los marca como notificados."""
     now = timezone.now()
-    due_reminders = Reminder.objects.filter(
+    due_reminders = list(
+        Reminder.objects.filter(
         user=request.user,
         is_active=True,
         remind_at__lte=now,
         notified_at__isnull=True,
-    ).order_by("remind_at")
+        ).order_by("remind_at")
+    )
 
     # Log for debugging: which reminders are considered due
-    if due_reminders.exists():
+    if due_reminders:
         logger.info(
             "ReminderDueView: %d due reminders for user %s at %s",
-            due_reminders.count(),
+            len(due_reminders),
             request.user.username,
             now,
         )
@@ -420,7 +422,10 @@ def ReminderDueView(request):
 
     serializer = ReminderSerializer(due_reminders, many=True)
     # Mark as notified AFTER serializing to return the data that triggered the notification
-    due_reminders.update(notified_at=now)
+    if due_reminders:
+        Reminder.objects.filter(pk__in=[reminder.pk for reminder in due_reminders]).update(
+            notified_at=now
+        )
     return Response(serializer.data)
 
 

@@ -10,6 +10,13 @@ from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, 
 logger = logging.getLogger(__name__)
 
 
+class IsoDateTimeField(serializers.DateTimeField):
+    def to_representation(self, value):
+        if value is None:
+            return None
+        return value.isoformat()
+
+
 # Serializer para las metas de un atleta.
 class GoalSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -111,6 +118,11 @@ class ProfileSettingsSerializer(serializers.Serializer):
 
 
 class ReminderSerializer(serializers.ModelSerializer):
+    remind_at = IsoDateTimeField()
+    notified_at = IsoDateTimeField(required=False, allow_null=True)
+    created_at = IsoDateTimeField(read_only=True)
+    updated_at = IsoDateTimeField(read_only=True)
+
     class Meta:
         model = Reminder
         fields = [
