@@ -5,7 +5,9 @@ import '../../repositories/notification/reminder_service.dart';
 import '../../theme/app_colors.dart';
 
 class RemindersScreen extends StatefulWidget {
-  const RemindersScreen({super.key});
+  final VoidCallback? onReminderSaved;
+
+  const RemindersScreen({super.key, this.onReminderSaved});
 
   @override
   State<RemindersScreen> createState() => _RemindersScreenState();
@@ -74,7 +76,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ReminderFormSheet(reminder: reminder, service: _service),
+      builder: (_) => _ReminderFormSheet(
+        reminder: reminder,
+        service: _service,
+        onReminderSaved: widget.onReminderSaved,
+      ),
     );
 
     if (saved == true) {
@@ -201,8 +207,13 @@ class _RemindersScreenState extends State<RemindersScreen> {
 class _ReminderFormSheet extends StatefulWidget {
   final ReminderModel? reminder;
   final ReminderService service;
+  final VoidCallback? onReminderSaved;
 
-  const _ReminderFormSheet({required this.reminder, required this.service});
+  const _ReminderFormSheet({
+    required this.reminder,
+    required this.service,
+    this.onReminderSaved,
+  });
 
   @override
   State<_ReminderFormSheet> createState() => _ReminderFormSheetState();
@@ -298,6 +309,10 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
       }
 
       if (!mounted) return;
+      
+      // Dispara el callback para sincronizar recordatorios en MainScreen
+      widget.onReminderSaved?.call();
+      
       Navigator.pop(context, true);
     } on DioException catch (e) {
       final serverMessage = e.response?.data?['remind_at'];

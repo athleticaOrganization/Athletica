@@ -424,7 +424,7 @@ class _MainScreenState extends State<MainScreen> {
     RoutinesListScreen(key: _routinesKey),
     _buildNutritionScreen(),
     _buildCommunityOrAthletesScreen(),
-    const ProfileScreen(),
+    ProfileScreen(onReminderSaved: _checkDueReminders),
   ];
 
   Widget _buildNutritionScreen() {

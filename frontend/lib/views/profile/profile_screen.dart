@@ -14,7 +14,9 @@ import '../group/groups_screen.dart';
 import '../notifications/reminders_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onReminderSaved;
+
+  const ProfileScreen({super.key, this.onReminderSaved});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -502,7 +504,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const RemindersScreen(),
+                                  builder: (_) => RemindersScreen(
+                                    onReminderSaved: widget.onReminderSaved,
+                                  ),
                                 ),
                               );
                             },
