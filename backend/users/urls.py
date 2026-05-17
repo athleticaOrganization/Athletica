@@ -6,16 +6,21 @@ from .views import (
     AthleteSearchView,
     CoachAthleteManagementView,
     CoachDashboardView,
+    ComparativeStatsView,
     CustomTokenObtainPairView,
     GoalDetailView,
     GoalLogView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     ProfileSettingsView,
     ReminderDetailView,
     ReminderDueView,
     ReminderListCreateView,
     RegisterView,
     WeightLogView,
+    followUser,
     protected_test,
+    unfollowUser,
 )
 
 urlpatterns = [
@@ -40,4 +45,14 @@ urlpatterns = [
     path("api/reminders/", ReminderListCreateView, name="reminders"),
     path("api/reminders/<int:reminder_id>/", ReminderDetailView, name="reminder_detail"),
     path("api/reminders/due/", ReminderDueView, name="reminders_due"),
+    # Follow/Unfollow endpoints
+    path("api/users/<int:user_id>/follow/", followUser, name="follow_user"),
+    path("api/users/<int:user_id>/unfollow/", unfollowUser, name="unfollow_user"),
+    path(
+        "api/dashboard/athlete/comparative-stats/", ComparativeStatsView, name="comparative_stats"
+    ),
+    path("api/auth/password-reset/", PasswordResetRequestView, name="password_reset"),
+    path(
+        "api/auth/password-reset-confirm/", PasswordResetConfirmView, name="password_reset_confirm"
+    ),
 ]

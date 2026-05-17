@@ -1,5 +1,15 @@
+from datetime import timedelta
+
+import logging
+
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.db import models
+from django.db.models import Avg
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -7,9 +17,13 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import AthleteProfile, CoachProfile, Goal, Reminder, User, WeightLog
+from nutrition.models import MealRecord
+from routines.models import WorkoutSession
+
+from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
 from .serializers import (
     AthleteSearchSerializer,
+    FollowSerializer,
     GoalSerializer,
     MyTokenObtainPairSerializer,
     ProfileSettingsSerializer,
@@ -18,7 +32,6 @@ from .serializers import (
     UserSerializer,
     WeightLogSerializer,
 )
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +273,8 @@ def AthleteDashboardView(request):
             "activity_level": profile.activity_level,
             "latest_weight": (WeightLogSerializer(latest_weight).data if latest_weight else None),
             "goal": GoalSerializer(active_goal).data if active_goal else None,
+            "followers_count": request.user.followers.count(),
+            "following_count": request.user.following.count(),
         }
     )
 
@@ -437,5 +452,261 @@ def CoachDashboardView(request):
             "speciality": profile.speciality,
             "years_experience": profile.years_experience,
             "groups": list(groups),
+            "followers_count": request.user.followers.count(),
+            "following_count": request.user.following.count(),
         }
     )
+
+
+# ── Follow/Unfollow ───────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def followUser(request, user_id):
+    """
+    Crear un registro Follow: el usuario logueado sigue a otro usuario.
+    user_id = id de User que se quiere seguir
+    """
+    try:
+        user_to_follow = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    # No puede seguirse a sí mismo
+    if request.user.id == user_to_follow.id:
+        return Response(
+            {"detail": "No puedes seguirte a ti mismo."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Evitar duplicados
+    follow, isNew = Follow.objects.get_or_create(follower=request.user, following=user_to_follow)
+
+    if not isNew:
+        return Response(
+            {"detail": "Ya estás siguiendo a este usuario."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = FollowSerializer(follow)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def unfollowUser(request, user_id):
+    """
+    Eliminar un registro Follow: el usuario logueado deja de seguir a otro usuario.
+    user_id = id de User que se quiere dejar de seguir
+    """
+    try:
+        user_to_unfollow = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        follow = Follow.objects.get(follower=request.user, following=user_to_unfollow)
+    except Follow.DoesNotExist:
+        return Response(
+            {"detail": "No estás siguiendo a este usuario."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    follow.delete()
+    return Response(
+        {"detail": "Has dejado de seguir al usuario."}, status=status.HTTP_204_NO_CONTENT
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def ComparativeStatsView(request):
+    try:
+        profile = AthleteProfile.objects.get(user=request.user)
+    except AthleteProfile.DoesNotExist:
+        return Response({"detail": "Perfil no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+    period = request.query_params.get("period", "monthly")
+    now = timezone.now()
+
+    if period == "monthly":
+        current_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        previous_start = (current_start - timedelta(days=1)).replace(day=1)
+        previous_end = current_start - timedelta(microseconds=1)
+    elif period == "quarterly":
+        current_quarter_month = ((now.month - 1) // 3) * 3 + 1
+        current_start = now.replace(
+            month=current_quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        previous_end = current_start - timedelta(microseconds=1)
+        previous_quarter_month = ((previous_end.month - 1) // 3) * 3 + 1
+        previous_start = previous_end.replace(
+            month=previous_quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+    else:
+        return Response({"error": "Periodo no soportado"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def calc_change(curr, prev):
+        if prev == 0 and curr > 0:
+            return 100.0
+        if prev == 0 and curr == 0:
+            return 0.0
+        return ((curr - prev) / prev) * 100.0
+
+    current_workouts = WorkoutSession.objects.filter(
+        user=request.user, date__gte=current_start
+    ).count()
+    previous_workouts = WorkoutSession.objects.filter(
+        user=request.user, date__gte=previous_start, date__lte=previous_end
+    ).count()
+    workouts_change = calc_change(current_workouts, previous_workouts)
+
+    current_meals = MealRecord.objects.filter(athlete=profile, date__gte=current_start.date())
+    current_calories = sum(m.calories for m in current_meals)
+    days_current = max(1, (now.date() - current_start.date()).days + 1)
+    current_cal_avg = float(current_calories) / days_current
+
+    previous_meals = MealRecord.objects.filter(
+        athlete=profile, date__gte=previous_start.date(), date__lte=previous_end.date()
+    )
+    previous_calories = sum(m.calories for m in previous_meals)
+    days_previous = max(1, (previous_end.date() - previous_start.date()).days + 1)
+    previous_cal_avg = float(previous_calories) / days_previous
+    cal_change = calc_change(current_cal_avg, previous_cal_avg)
+
+    current_weight_avg = (
+        WeightLog.objects.filter(athlete=profile, date__gte=current_start).aggregate(Avg("weight"))[
+            "weight__avg"
+        ]
+        or 0.0
+    )
+    previous_weight_avg = (
+        WeightLog.objects.filter(
+            athlete=profile, date__gte=previous_start, date__lte=previous_end
+        ).aggregate(Avg("weight"))["weight__avg"]
+        or 0.0
+    )
+
+    if current_weight_avg == 0:
+        last = WeightLog.objects.filter(athlete=profile).order_by("-date").first()
+        current_weight_avg = float(last.weight) if last else 0.0
+
+    if previous_weight_avg == 0:
+        last_prev = (
+            WeightLog.objects.filter(athlete=profile, date__lte=previous_end)
+            .order_by("-date")
+            .first()
+        )
+        previous_weight_avg = float(last_prev.weight) if last_prev else current_weight_avg
+
+    weight_change = calc_change(current_weight_avg, previous_weight_avg)
+
+    return Response(
+        {
+            "workouts": {
+                "current": current_workouts,
+                "previous": previous_workouts,
+                "change_percentage": round(workouts_change, 1),
+            },
+            "calories_daily_avg": {
+                "current": round(current_cal_avg, 1),
+                "previous": round(previous_cal_avg, 1),
+                "change_percentage": round(cal_change, 1),
+            },
+            "weight_avg": {
+                "current": round(current_weight_avg, 1),
+                "previous": round(previous_weight_avg, 1),
+                "change_percentage": round(weight_change, 1),
+            },
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def PasswordResetRequestView(request):
+    """
+    Solicita un restablecimiento de contraseña.
+    En una app real, enviaría un correo. Aquí simulamos el envío por consola.
+    """
+    email = request.data.get("email")
+    if not email:
+        return Response({"detail": "El email es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Por seguridad, no revelamos si el email existe o no.
+        return Response(
+            {"detail": "Si el email está registrado, recibirás un enlace de recuperación."},
+            status=status.HTTP_200_OK,
+        )
+
+    token = default_token_generator.make_token(user)
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+
+    # En una app real, aquí enviaríamos el correo
+    subject = "Restablece tu contraseña en Athletica"
+    message = f"Hola {user.username},\n\nUtiliza los siguientes datos para restablecer tu contraseña en la aplicación:\n\nUID: {uidb64}\nToken: {token}\n\nSi no solicitaste este cambio, ignora este mensaje."
+
+    try:
+        print(f"DEBUG: Intentando enviar correo a {email} desde {settings.DEFAULT_FROM_EMAIL}...")
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        print(f"DEBUG: Correo enviado exitosamente a {email}")
+    except Exception as e:
+        # Si falla el envío (por falta de config), imprimimos en consola para no perder el token
+        print(f"ERROR enviando correo a {email}: {e}")
+        print(f"DATOS DE RECUPERACIÓN -> UID: {uidb64} | TOKEN: {token}")
+
+    return Response(
+        {
+            "detail": "Si el email está registrado, recibirás un código de recuperación.",
+            "debug_token": token,
+            "debug_uid": uidb64,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def PasswordResetConfirmView(request):
+    """
+    Confirma el restablecimiento de contraseña con el token recibido.
+    """
+    uidb64 = request.data.get("uid")
+    token = request.data.get("token")
+    new_password = request.data.get("password")
+
+    print(
+        f"DEBUG Confirm: Recibido UID={uidb64}, Token={token}, Password={'***' if new_password else 'VACIO'}"
+    )
+
+    if not (uidb64 and token and new_password):
+        return Response(
+            {"detail": "Faltan datos requeridos (uid, token, password)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+        print(f"DEBUG Confirm: Usuario encontrado: {user.username}")
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
+        print(f"DEBUG Confirm: Error al decodificar UID o usuario no existe: {e}")
+        return Response({"detail": "Enlace o UID inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        user.set_password(new_password)
+        user.save()
+        print(f"DEBUG Confirm: Contraseña de {user.username} actualizada con éxito.")
+        return Response(
+            {"detail": "Contraseña restablecida correctamente."}, status=status.HTTP_200_OK
+        )
+    else:
+        print(f"DEBUG Confirm: El token '{token}' es inválido para el usuario {user.username}")
+        return Response(
+            {"detail": "El token es inválido o ha expirado."}, status=status.HTTP_400_BAD_REQUEST
+        )

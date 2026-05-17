@@ -25,6 +25,7 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
   late final RoutinesListViewModel _viewModel;
   String? _userRole;
   bool _showPersonalRoutines = false;
+  static const String _misRutinasText = "MIS RUTINAS";
 
   @override
   void initState() {
@@ -110,11 +111,17 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "MIS RUTINAS",
-                  style: AppTextStyles.fitnessDisplay.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      _misRutinasText,
+                      style: AppTextStyles.fitnessDisplay.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('🏋️', style: TextStyle(fontSize: 22)),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -126,6 +133,7 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
               ],
             ),
           ),
+
           _buildActionCircle(Icons.history_rounded, () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const WorkoutHistoryScreen()),
@@ -306,7 +314,7 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
               ),
               const Spacer(),
               const Text(
-                "MIS RUTINAS",
+                _misRutinasText,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -331,7 +339,7 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "RECIENTES",
+              "⚡ RECIENTES",
               style: AppTextStyles.fitnessBold.copyWith(
                 fontSize: 14,
                 color: AppColors.textSecondary,
@@ -372,7 +380,7 @@ class RoutinesListScreenState extends State<RoutinesListScreen> {
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () => setState(() => _showPersonalRoutines = false),
               ),
-              Text("MIS RUTINAS", style: AppTextStyles.inputLabel),
+              Text(_misRutinasText, style: AppTextStyles.inputLabel),
             ],
           ),
         const SizedBox(height: 12),

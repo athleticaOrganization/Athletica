@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AthleteProfile, CoachProfile, Goal, Reminder, User, WeightLog
+from .models import AthleteProfile, CoachProfile, Follow, Goal, Reminder, User, WeightLog
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,6 @@ class WeightLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeightLog
         fields = ["id", "weight", "body_fat", "date"]
-        read_only_fields = ["date"]
 
 
 # Serializer para el perfil del atleta.
@@ -48,7 +47,15 @@ class AthleteProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AthleteProfile
-        fields = ["id", "height", "age", "gender", "activity_level", "goals", "weight_logs"]
+        fields = [
+            "id",
+            "height",
+            "age",
+            "gender",
+            "activity_level",
+            "goals",
+            "weight_logs",
+        ]
 
 
 # Serializer para el perfil del coach.
@@ -62,6 +69,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     athlete_profile = AthleteProfileSerializer(read_only=True)
     coach_profile = CoachProfileSerializer(read_only=True)
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -78,7 +86,19 @@ class UserSerializer(serializers.ModelSerializer):
             "timezone",
             "athlete_profile",
             "coach_profile",
+            "is_following",
         ]
+
+    def get_is_following(self, obj):
+        """Verifica si el usuario logueado sigue a este usuario"""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        if request.user.id == obj.id:
+            return None  # No puede seguirse a sí mismo
+
+        return Follow.objects.filter(follower=request.user, following=obj).exists()
 
 
 class ProfileSettingsSerializer(serializers.Serializer):
@@ -146,8 +166,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
 
     def validate_email(self, value):
-        User = get_user_model()
-        if User.objects.filter(email=value).exists():
+        user_model = get_user_model()
+        if user_model.objects.filter(email=value).exists():
             raise serializers.ValidationError("Este email ya esta en uso.")
         return value
 
@@ -157,12 +177,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        User = get_user_model()
+        user_model = get_user_model()
         athlete_data = validated_data.pop("athlete_profile", None)
         coach_data = validated_data.pop("coach_profile", None)
         validated_data.pop("password2")
 
-        user = User.objects.create_user(**validated_data)
+        user = user_model.objects.create_user(**validated_data)
 
         if user.role == "athlete" and athlete_data:
             goals_data = athlete_data.pop("goals", [])
@@ -214,7 +234,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         except Exception as e:
             # If for some reason extra field logic fails, don't block the login
             logger.error(f"Error adding extra fields to login data: {e}", exc_info=True)
-            pass
 
         return data
 
@@ -248,3 +267,21 @@ class AthleteSearchSerializer(serializers.ModelSerializer):
 
         routine = Routine.objects.filter(assigned_athletes=obj).first()
         return routine.title if routine else None
+
+
+# Serializer para gestionar los seguimientos de usuarios
+class FollowSerializer(serializers.ModelSerializer):
+    follower_username = serializers.CharField(source="follower.username", read_only=True)
+    following_username = serializers.CharField(source="following.username", read_only=True)
+
+    class Meta:
+        model = Follow
+        fields = [
+            "id",
+            "follower",
+            "following",
+            "follower_username",
+            "following_username",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]

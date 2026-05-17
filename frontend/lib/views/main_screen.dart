@@ -15,6 +15,7 @@ import 'notifications/notifications_screen.dart';
 import '../../models/notification/notification_model.dart';
 import '../../models/notification/reminder_model.dart';
 import '../../repositories/notification/reminder_service.dart';
+import 'community/athlete_community_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -26,6 +27,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   int _homeRefreshTick = 0;
+  int _profileRefreshTick = 0;
   int? _athleteId;
   String? _userRole;
   Timer? _pollingTimer;
@@ -36,6 +38,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final GlobalKey<RoutinesListScreenState> _routinesKey = GlobalKey();
   final GlobalKey<CoachAthletesScreenState> _coachAthletesKey = GlobalKey();
+  final GlobalKey<CommunityScreenState> _communityKey = GlobalKey();
 
   @override
   void initState() {
@@ -61,13 +64,19 @@ class _MainScreenState extends State<MainScreen> {
       await _syncNotifiedRemindersToNotifications();
 
       // Check routine updates using the USER ID (since assigned_athletes are users)
-      if (role == 'athlete' && userId != null) {
-        _checkRoutineUpdate(userId);
-        // Start polling every 5 minutes
-        _pollingTimer = Timer.periodic(
-          const Duration(minutes: 5),
-          (_) => _checkRoutineUpdate(userId),
-        );
+      if (userId != null) {
+        if (role == 'athlete') {
+          _checkRoutineUpdate(userId);
+        }
+        _checkNewFollowers();
+
+        // Start polling every 5 minutes (single timer for all checks)
+        _pollingTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+          if (role == 'athlete') {
+            _checkRoutineUpdate(userId);
+          }
+          _checkNewFollowers();
+        });
       }
 
       await _startReminderPollingWhenReady();
@@ -238,24 +247,24 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _checkRoutineUpdate(int userId) async {
     try {
-      final response = await ApiClient.dio.get(
-        'routines/athlete/$userId/active/',
-      );
+      final response = await ApiClient.dio.get('routines/athlete/$userId/active/');
       final int? currentRoutineId = response.data['id'];
       final int? lastRoutineId = await TokenStorage.getLastRoutineId();
 
       if (currentRoutineId != null) {
-        // Notificar si hay una rutina nueva (incluyendo la primera asignación)
-        if (currentRoutineId != lastRoutineId) {
-          if (mounted) {
-            final isFirstTime = lastRoutineId == null;
-            final title = isFirstTime
-                ? "Nueva Rutina Asignada"
-                : "Rutina Actualizada";
-            final message = isFirstTime
-                ? "Tu entrenador te ha asignado un nuevo plan de entrenamiento."
-                : "Se han realizado cambios en tu rutina actual.";
+        if (currentRoutineId != lastRoutineId && mounted) {
+          final isFirstTime = lastRoutineId == null;
+          final title = isFirstTime ? 'Nueva Rutina Asignada' : 'Rutina Actualizada';
+          final message = isFirstTime
+              ? 'Tu entrenador te ha asignado un nuevo plan de entrenamiento.'
+              : 'Se han realizado cambios en tu rutina actual.';
 
+          final shouldInsert =
+              _notifications.isEmpty ||
+              !(_notifications.first.title == title &&
+                  _notifications.first.message == message);
+
+          if (shouldInsert) {
             setState(() {
               _notifications.insert(
                 0,
@@ -279,10 +288,11 @@ class _MainScreenState extends State<MainScreen> {
             );
           }
         }
+
         await TokenStorage.saveLastRoutineId(currentRoutineId);
       }
     } catch (e) {
-      debugPrint("Error checking routine update (Silent): $e");
+      debugPrint('Error checking routine update (Silent): $e');
     }
   }
 
@@ -414,6 +424,113 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  Future<void> _checkNewFollowers() async {
+    try {
+      final String endpoint = _userRole == 'coach' ? 'dashboard/coach/' : 'dashboard/athlete/';
+
+      final response = await ApiClient.dio.get(endpoint);
+      final int currentFollowersCount = response.data['followers_count'] ?? 0;
+      final int? lastFollowersCount = await TokenStorage.getLastFollowersCount();
+
+      if (lastFollowersCount != null && currentFollowersCount > lastFollowersCount) {
+        final newFollowersCount = currentFollowersCount - lastFollowersCount;
+
+        if (mounted) {
+          final title = 'Nuevos Seguidores';
+          final message = newFollowersCount == 1
+              ? 'Un usuario empezó a seguirte'
+              : '$newFollowersCount usuarios empezaron a seguirte';
+
+          final shouldInsert =
+              _notifications.isEmpty ||
+              !(_notifications.first.title == title &&
+                  _notifications.first.message == message);
+
+          if (shouldInsert) {
+            setState(() {
+              _notifications.insert(
+                0,
+                NotificationModel(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: title,
+                  message: message,
+                  date: DateTime.now(),
+                  type: NotificationType.followerAdded,
+                ),
+              );
+            });
+
+            _showNotificationSnackBar(title, 4);
+          }
+        }
+      } else if (lastFollowersCount == null && currentFollowersCount > 0) {
+        if (mounted) {
+          final title = 'Tienes nuevos seguidores';
+          final message = currentFollowersCount == 1
+              ? 'Tienes 1 seguidor'
+              : 'Tienes $currentFollowersCount seguidores';
+
+          final shouldInsert =
+              _notifications.isEmpty ||
+              !(_notifications.first.title == title &&
+                  _notifications.first.message == message);
+
+          if (shouldInsert) {
+            setState(() {
+              _notifications.insert(
+                0,
+                NotificationModel(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  title: title,
+                  message: message,
+                  date: DateTime.now(),
+                  type: NotificationType.followerAdded,
+                ),
+              );
+            });
+
+            _showNotificationSnackBar(title, 4);
+          }
+        }
+      }
+
+      await TokenStorage.saveLastFollowersCount(currentFollowersCount);
+    } catch (e) {
+      debugPrint('Error checking new followers (Silent): $e');
+    }
+  }
+
+  void _showNotificationSnackBar(String message, int indexPage) {
+    final controller = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'VER',
+          textColor: Colors.white,
+          onPressed: () => setState(() => _currentIndex = indexPage),
+        ),
+      ),
+    );
+
+    controller.closed.then((_) async {
+      setState(() {
+        for (var n in _notifications) {
+          n.isRead = true;
+        }
+      });
+      await TokenStorage.saveNotifications(_notifications);
+    });
+  }
+
   List<Widget> get _screens => [
     HomeScreen(
       hasNotification: _notifications.any((n) => !n.isRead),
@@ -424,7 +541,7 @@ class _MainScreenState extends State<MainScreen> {
     RoutinesListScreen(key: _routinesKey),
     _buildNutritionScreen(),
     _buildCommunityOrAthletesScreen(),
-    ProfileScreen(onReminderSaved: _checkDueReminders),
+    ProfileScreen(onReminderSaved: _checkDueReminders, refreshTick: _profileRefreshTick),
   ];
 
   Widget _buildNutritionScreen() {
@@ -444,7 +561,8 @@ class _MainScreenState extends State<MainScreen> {
     if (_userRole == 'coach') {
       return CoachAthletesScreen(key: _coachAthletesKey);
     }
-    return const Center(child: Text('Comunidad'));
+
+    return CommunityScreen(key: _communityKey);
   }
 
   @override
@@ -474,7 +592,7 @@ class _MainScreenState extends State<MainScreen> {
           height: 75,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.95), // Lighter elegant pill
+            color: Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(40),
             border: Border.all(
               color: Colors.grey.withValues(alpha: 0.2),
@@ -517,12 +635,16 @@ class _MainScreenState extends State<MainScreen> {
             if (index == 0) {
               _homeRefreshTick++;
             }
+            if (index == 4) {
+              _profileRefreshTick++;
+            }
           });
-          // Refresh logic when switching tabs
           if (index == 1) {
             _routinesKey.currentState?.refresh();
           } else if (index == 3 && _userRole == 'coach') {
             _coachAthletesKey.currentState?.refresh();
+          } else if (index == 3 && _userRole == 'athlete') {
+            _communityKey.currentState?.refresh();
           }
         }
       },

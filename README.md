@@ -12,9 +12,15 @@ El objetivo es facilitar a los usuarios el registro de rutinas, ejercicios y ali
 [![Athletica CI - Dev](https://github.com/dsalazar444/Athletica/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/dsalazar444/Athletica/actions/workflows/ci.yml)
 
 **Calidad de Código (SonarCloud):**
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=alert_status&organization=sahiansalome14)](https://sonarcloud.io/summary/new_code?id=Athletica&organization=sahiansalome14)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=coverage&organization=sahiansalome14)](https://sonarcloud.io/summary/new_code?id=Athletica&organization=sahiansalome14)
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=sqale_index&organization=sahiansalome14)](https://sonarcloud.io/summary/new_code?id=Athletica&organization=sahiansalome14)
+
+**Únicamente rama: Main**
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=coverage&token=d97cb3a0cfbfcbf012a2d32534353397922c8ee5)](https://sonarcloud.io/summary/new_code?id=Athletica)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=reliability_rating&token=d97cb3a0cfbfcbf012a2d32534353397922c8ee5)](https://sonarcloud.io/summary/new_code?id=Athletica)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=sqale_rating&token=d97cb3a0cfbfcbf012a2d32534353397922c8ee5)](https://sonarcloud.io/summary/new_code?id=Athletica)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=Athletica&metric=sqale_index&token=d97cb3a0cfbfcbf012a2d32534353397922c8ee5)](https://sonarcloud.io/summary/new_code?id=Athletica)
+
+
 
 ## 👥 Equipo de trabajo 
 - Daniela Salazar

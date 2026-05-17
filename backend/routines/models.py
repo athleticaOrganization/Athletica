@@ -50,6 +50,7 @@ class Routine(models.Model):
 
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True, default="")
+    is_public = models.BooleanField(default=True)
 
     # Usamos CharField con choices para validación y eficiencia
     category = models.CharField(max_length=20, choices=Category.choices, default=Category.HYBRID)
@@ -91,6 +92,7 @@ class RoutineExercise(models.Model):
         related_name="routine_exercises",
     )
     order = models.PositiveIntegerField()
+    # number_sets
 
     class Meta:
         ordering = ["order"]

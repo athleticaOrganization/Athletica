@@ -1,9 +1,8 @@
 from rest_framework import serializers
 
 from routines.models import Exercise, Routine, RoutineExercise
-
-# from users.models import User
 from routines.serializers.serializers_exercise import ExerciseSerializer
+from users.models import Follow
 
 
 # exercise_id: Debe ser el id de un Exercise existente.
@@ -31,7 +30,7 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Routine
-        fields = ["id", "title", "description", "category", "difficulty", "exercises"]
+        fields = ["id", "title", "description", "category", "difficulty", "is_public", "exercises"]
 
     def validate_exercises(self, exercises):
         """Verifica que no vengan dos ejercicios con el mismo orden."""
@@ -47,7 +46,6 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
         """Valida que el usuario autenticado no tenga otra rutina con el mismo título."""
         request = self.context.get("request")
         user = getattr(request, "user", None)
-        # user = User.objects.get(username='daniela')
         title = data.get("title")
         if user and title:
             qs = Routine.objects.filter(title=title, created_by=user)
@@ -75,7 +73,7 @@ class RoutineCreateSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
 
         if not user:
-            raise serializers.ValidationError("Authentication required to create a routine.")
+            raise serializers.ValidationError("Autenticación requerida para crear una rutina.")
 
         # Pop created_by if it was passed from perform_create to avoid duplicate argument error
         created_by = validated_data.pop("created_by", user)
@@ -108,6 +106,7 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
     )
     assigned_athletes_info = serializers.SerializerMethodField()
     creator_name = serializers.CharField(source="created_by.first_name", read_only=True)
+    creator_is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = Routine
@@ -117,8 +116,10 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             "description",
             "category",
             "difficulty",
+            "is_public",
             "created_by",
             "creator_name",
+            "creator_is_following",
             "exercises",
             "assigned_athletes_count",
             "assigned_athletes_info",
@@ -140,3 +141,22 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             {"id": athlete.id, "first_name": athlete.first_name or athlete.username}
             for athlete in routine.assigned_athletes.all()
         ]
+
+    def get_creator_is_following(self, routine):
+        """Verifica si el usuario logueado sigue al creador de la rutina."""
+
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        if request.user.id == routine.created_by_id:
+            return None  # El creador no puede seguirse a sí mismo
+
+        annotated_value = getattr(routine, "is_followed_by_request_user", None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+
+        return Follow.objects.filter(
+            follower=request.user,
+            following_id=routine.created_by_id,
+        ).exists()

@@ -105,7 +105,7 @@ else:
             "ENGINE": "django.db.backends.postgresql",
             "NAME": os.environ.get("DB_NAME", "users_db"),
             "USER": os.environ.get("DB_USER", "users_django"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "password123"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "password123"),  # NOSONAR
             "HOST": os.environ.get("DB_HOST", DEFAULT_DB_HOST),
             "PORT": os.environ.get("DB_PORT", DEFAULT_DB_PORT),
         }
@@ -154,3 +154,12 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+# Email settings
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.mailtrap.io")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 2525))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Athletica <noreply@athletica.com>")

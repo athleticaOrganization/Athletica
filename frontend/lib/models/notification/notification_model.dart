@@ -5,6 +5,7 @@ enum NotificationType {
   routineUpdated,
   reminder,
   community,
+  followerAdded,
   system,
 }
 
@@ -37,6 +38,8 @@ class NotificationModel {
         return Icons.alarm_rounded;
       case NotificationType.community:
         return Icons.people_rounded;
+      case NotificationType.followerAdded:
+        return Icons.person_add_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -52,6 +55,8 @@ class NotificationModel {
         return Colors.deepOrange;
       case NotificationType.community:
         return Colors.green;
+      case NotificationType.followerAdded:
+        return Colors.purple;
       default:
         return Colors.grey;
     }

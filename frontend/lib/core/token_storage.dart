@@ -13,6 +13,7 @@ class TokenStorage {
   static const _lastRoutineKey = 'last_routine_id';
   static const _notificationsKey = 'saved_notifications';
   static const _shownReminderIdsKey = 'shown_reminder_ids';
+  static const _lastFollowersCountKey = 'last_followers_count';
 
   static Future<void> saveTokens({
     required String access,
@@ -85,6 +86,7 @@ class TokenStorage {
     await prefs.remove(_lastRoutineKey);
     await prefs.remove(_notificationsKey);
     await prefs.remove(_shownReminderIdsKey);
+    await prefs.remove(_lastFollowersCountKey);
   }
 
   static Future<void> saveLastRoutineId(int? id) async {
@@ -145,5 +147,15 @@ class TokenStorage {
   static Future<void> clearShownReminderIds() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_shownReminderIdsKey);
+  }
+
+  static Future<void> saveLastFollowersCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastFollowersCountKey, count);
+  }
+
+  static Future<int?> getLastFollowersCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastFollowersCountKey);
   }
 }
