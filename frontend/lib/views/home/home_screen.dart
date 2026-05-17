@@ -6,6 +6,12 @@ import '../../core/token_storage.dart';
 import '../../core/api_client.dart';
 import '../../repositories/nutrition/nutrition_service.dart';
 import '../../repositories/routine/workout_repository.dart';
+import '../../repositories/routine/recommendation_repository.dart';
+import '../../models/routine/exercise_recommendation.dart';
+import 'package:lottie/lottie.dart';
+
+import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool hasNotification;
@@ -31,6 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final WorkoutRepository _workoutRepository = WorkoutRepository(
     baseUrl: ApiClient.baseUrl,
   );
+  final RecommendationRepository _recommendationRepository =
+      RecommendationRepository(baseUrl: ApiClient.baseUrl);
+
+  String _userRole = 'athlete';
 
   static const int _calendarDays = 21;
   static const List<String> _weekdayLabels = [
@@ -46,11 +56,30 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isCalendarLoading = true;
   Map<String, _DayActivity> _calendarActivity = {};
 
+  bool _isAiLoading = true;
+  List<ExerciseRecommendation> _aiRecommendations = [];
+
+  // Real daily stats
+  double _todayCalories = 0;
+  int _todayMinutes = 0;
+  double _userWeightKg = 0;
+
   @override
   void initState() {
     super.initState();
     _loadUserName();
+    _loadUserRole();
     _loadCalendarActivity();
+    _loadAiRecommendations();
+    _loadDailyStats();
+    _loadUserWeight();
+  }
+
+  Future<void> _loadUserRole() async {
+    final role = await TokenStorage.getUserRole();
+    if (role != null) {
+      if (mounted) setState(() => _userRole = role);
+    }
   }
 
   @override
@@ -117,6 +146,16 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _calendarActivity = byDay;
           _isCalendarLoading = false;
+          // Compute today's workout minutes from today's sessions
+          final todayKey = _formatDate(DateTime.now());
+          _todayMinutes =
+              workoutHistory.results
+                  .where(
+                    (s) =>
+                        _formatDate((s.date as DateTime).toLocal()) == todayKey,
+                  )
+                  .length *
+              45; // approx 45 min per session
         });
       }
     } catch (_) {
@@ -127,6 +166,59 @@ class _HomeScreenState extends State<HomeScreen> {
               _formatDate(start.add(Duration(days: i))): _DayActivity.none,
           };
           _isCalendarLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDailyStats() async {
+    try {
+      final today = _formatDate(DateTime.now());
+      final meals = await _nutritionService.getMeals(
+        date: today,
+        athleteId: widget.athleteId,
+      );
+      if (mounted) {
+        setState(() {
+          _todayCalories = meals.fold<double>(0, (s, m) => s + m.calories);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadUserWeight() async {
+    try {
+      final res = await ApiClient.dio.get('users/profile/settings/');
+      final data = res.data as Map<String, dynamic>;
+      if (mounted && data['weight'] != null) {
+        setState(() {
+          _userWeightKg = double.tryParse(data['weight'].toString()) ?? 0.0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadAiRecommendations() async {
+    if (!mounted) return;
+    setState(() => _isAiLoading = true);
+
+    try {
+      final response = await _recommendationRepository.fetchAIRecommendations();
+      if (mounted) {
+        debugPrint(
+          "DEBUG: AI Recommendations loaded: ${response.recommendations.length}",
+        );
+        setState(() {
+          _aiRecommendations = response.recommendations;
+          _isAiLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("ERROR fetching recommendations: $e");
+      if (mounted) {
+        setState(() {
+          _aiRecommendations = []; // Clear to show empty state with count
+          _isAiLoading = false;
         });
       }
     }
@@ -166,6 +258,299 @@ class _HomeScreenState extends State<HomeScreen> {
     return streak;
   }
 
+  void _showExerciseDetailSheet(ExerciseRecommendation rec) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final controller = YoutubePlayerController(
+          params: const YoutubePlayerParams(
+            showControls: true,
+            showFullscreenButton: true,
+            mute: false,
+            loop: false,
+            enableJavaScript: true,
+          ),
+        );
+
+        final videoId = rec.youtubeId.trim().isNotEmpty
+            ? rec.youtubeId.trim()
+            : 'gcNh17Ckjgg';
+        controller.loadVideoById(videoId: videoId);
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1D1E).withValues(alpha: 0.98),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 240,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: AppRadius.card,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.intensityNeon.withValues(
+                                alpha: 0.1,
+                              ),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: rec.youtubeId.isNotEmpty
+                            ? YoutubePlayer(
+                                controller: controller,
+                                key: ValueKey(rec.youtubeId),
+                              )
+                            : _buildVideoPlaceholder(),
+                      ),
+                      const SizedBox(height: 12),
+                      if (rec.muscle.isNotEmpty)
+                        Wrap(spacing: 8, children: [_muscleBadge(rec.muscle)]),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: _techMetric(
+                              "SERIES",
+                              "${rec.sets}",
+                              Icons.refresh_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: _techMetric(
+                              "REPS",
+                              rec.reps,
+                              Icons.fitness_center_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: _techMetric(
+                              "DESC.",
+                              "${rec.rest}s",
+                              Icons.timer_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "GUÍA TÉCNICA DE ÉLITE",
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _launchYouTube(rec.exerciseName),
+                            icon: const Icon(
+                              Icons.play_circle_fill,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              "TÉCNICA PRO",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        rec.instructions.isNotEmpty
+                            ? rec.instructions
+                            : "Ejecuta el movimiento con control total. Mantén la tensión en el músculo objetivo durante toda la fase.",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 15,
+                          height: 1.6,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.intensityNeon,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            "¡LO TENGO!",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoPlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: 140,
+            child: Lottie.network(
+              'https://assets10.lottiefiles.com/packages/lf20_at6m8p.json', // Stable fitness animation
+              fit: BoxFit.contain,
+              repeat: true,
+              animate: true,
+              frameBuilder: (context, child, composition) {
+                if (composition == null) {
+                  return const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                return child;
+              },
+              errorBuilder: (context, error, stackTrace) => Icon(
+                Icons.fitness_center_rounded,
+                size: 64,
+                color: AppColors.intensityNeon.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "GUÍA VISUAL IA ACTIVA",
+            style: TextStyle(
+              color: AppColors.intensityNeon.withValues(alpha: 0.6),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchYouTube(String query) async {
+    final url = Uri.parse(
+      'https://www.youtube.com/results?search_query=${Uri.encodeComponent("$query exercise technique")}',
+    );
+
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir YouTube')),
+        );
+      }
+    }
+  }
+
+  Widget _muscleBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _techMetric(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white38, size: 18),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: AppTextStyles.fitnessBold.copyWith(
+                color: Colors.white,
+                fontSize: 22,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white24,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -181,17 +566,19 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("ESTADÍSTICAS DEL DÍA"),
+                  _buildSectionTitle("📊 ESTADÍSTICAS DEL DÍA"),
                   const SizedBox(height: 16),
                   _buildBentoGrid(),
                   const SizedBox(height: 32),
-                  _buildSectionTitle("CALENDARIO DE RACHA"),
+                  _buildSectionTitle("📅 CALENDARIO DE RACHA"),
                   const SizedBox(height: 16),
                   _buildStreakCalendar(),
-                  const SizedBox(height: 32),
-                  // _buildSectionTitle("ENTRENAMIENTO SUGERIDO"),
-                  // const SizedBox(height: 16),
-                  // _buildFeaturedRoutine(),
+                  if (_userRole != 'coach') ...[
+                    const SizedBox(height: 32),
+                    _buildSectionTitle("🎯🌟 RECOMENDACIÓN DEL DÍA"),
+                    const SizedBox(height: 16),
+                    _buildAiRecommendations(),
+                  ],
                   const SizedBox(height: 120),
                 ],
               ),
@@ -208,7 +595,6 @@ class _HomeScreenState extends State<HomeScreen> {
       width: double.infinity,
       child: Stack(
         children: [
-          // Hero Image
           Container(
             height: 480,
             width: double.infinity,
@@ -219,7 +605,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Gradient Overlay
           Container(
             height: 480,
             decoration: BoxDecoration(
@@ -235,139 +620,146 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Content
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "HOLA, ${_userName.toUpperCase()}",
-                            style: AppTextStyles.fitnessCaption.copyWith(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 10,
-                                  color: Colors.black.withValues(alpha: 0.8),
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "STRENGTH\n& POWER.",
-                            style: AppTextStyles.fitnessHero.copyWith(
-                              color: Colors.white,
-                              height: 0.9,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 10,
-                                  color: Colors.black.withValues(alpha: 0.8),
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      GestureDetector(
-                        onTap: widget.onNotificationTap,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.notifications_active_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                            if (widget.hasNotification)
-                              Positioned(
-                                right: 2,
-                                top: 2,
-                                child: Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.error,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteGlass,
-                      borderRadius: AppRadius.card,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
+          Positioned.fill(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.bolt_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                "EL ÉXITO COMIENZA AQUÍ",
-                                style: TextStyle(
+                              Text(
+                                "HOLA, ${_userName.toUpperCase()}",
+                                style: AppTextStyles.fitnessCaption.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w900,
-                                  fontSize: 13,
+                                  shadows: [
+                                    Shadow(
+                                      blurRadius: 10,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(height: 8),
                               Text(
-                                "¿Listo para tu entrenamiento de hoy?",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black.withValues(alpha: 0.7),
+                                "STRENGTH\n& POWER.",
+                                style: AppTextStyles.fitnessHero.copyWith(
+                                  color: Colors.white,
+                                  height: 0.9,
+                                  shadows: [
+                                    Shadow(
+                                      blurRadius: 10,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        GestureDetector(
+                          onTap: widget.onNotificationTap,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_active_rounded,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              if (widget.hasNotification)
+                                Positioned(
+                                  right: 2,
+                                  top: 2,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.error,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.black,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.whiteGlass,
+                        borderRadius: AppRadius.card,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.bolt_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "EL ÉXITO COMIENZA AQUÍ",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  "¡Listo para tu entrenamiento de hoy?",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -387,60 +779,119 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBentoGrid() {
-    final streakValue = _currentStreakDays.toString();
+    final streak = _currentStreakDays;
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: _bentoItem(
-                title: "CALORÍAS",
-                value: "1,240",
-                unit: "kcal",
-                icon: Icons.local_fire_department_rounded,
-                color: const Color(0xFFFF5252),
+        // ── Streak HERO (priority) ─────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF6F00), Color(0xFFFFD740)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF6F00).withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: _bentoItem(
-                title: "TIEMPO",
-                value: "45",
-                unit: "min",
-                icon: Icons.timer_rounded,
-                color: const Color(0xFF448AFF),
-              ),
+            child: Row(
+              children: [
+                const Text('🔥', style: TextStyle(fontSize: 40)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$streak ${streak == 1 ? 'día' : 'días'} de racha',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Text(
+                        streak == 0
+                            ? '¡Empieza hoy tu racha!'
+                            : streak >= 7
+                            ? '¡Increíble consistencia! 💪'
+                            : '¡Sigue así, lo estás logrando!',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: _bentoItem(
-                title: "RACHAS",
-                value: streakValue,
-                unit: "días",
-                icon: Icons.flash_on_rounded,
-                color: const Color(0xFFFFD740),
+        const SizedBox(height: 12),
+        // ── Stats row ──────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: _bentoItem(
+                  title: 'CALORÍAS HOY',
+                  value: _todayCalories > 0
+                      ? _todayCalories.toStringAsFixed(0)
+                      : '—',
+                  unit: _todayCalories > 0 ? 'kcal' : '',
+                  icon: Icons.local_fire_department_rounded,
+                  color: const Color(0xFFFF5252),
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: _bentoItem(
-                title: "PESO ACTUAL",
-                value: "78.5",
-                unit: "kg",
-                icon: Icons.fitness_center_rounded,
-                color: const Color(0xFF64FFDA),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _bentoItem(
+                  title: 'TIEMPO HOY',
+                  value: _todayMinutes > 0 ? '$_todayMinutes' : '—',
+                  unit: _todayMinutes > 0 ? 'min' : '',
+                  icon: Icons.timer_rounded,
+                  color: const Color(0xFF448AFF),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _bentoItem(
+                  title: 'PESO',
+                  value: _userWeightKg > 0
+                      ? _userWeightKg.toStringAsFixed(1)
+                      : '—',
+                  unit: _userWeightKg > 0 ? 'kg' : '',
+                  icon: Icons.monitor_weight_rounded,
+                  color: const Color(0xFF64FFDA),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -493,7 +944,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Ultimos 21 dias',
+                'Últimos 21 días',
                 style: AppTextStyles.fitnessCaption.copyWith(
                   color: AppColors.textSecondary,
                   letterSpacing: 0.5,
@@ -571,7 +1022,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: const [
               _LegendDot(label: 'Ejercicio', activity: _DayActivity.workout),
               _LegendDot(
-                label: 'Alimentacion',
+                label: 'Alimentación',
                 activity: _DayActivity.nutrition,
               ),
               _LegendDot(label: 'Ambos', activity: _DayActivity.both),
@@ -609,23 +1060,28 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: AppTextStyles.fitnessDisplay.copyWith(
-                  color: AppColors.textPrimary,
-                  letterSpacing: -1.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.bottomLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  style: AppTextStyles.fitnessDisplay.copyWith(
+                    color: AppColors.textPrimary,
+                    letterSpacing: -1.5,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(unit, style: AppTextStyles.bentoUnit),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(unit, style: AppTextStyles.bentoUnit),
+                ),
+              ],
+            ),
           ),
+
           const SizedBox(height: 4),
           Text(
             title,
@@ -639,95 +1095,167 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /*
-  Widget _buildFeaturedRoutine() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: AppRadius.cardLarge,
-        boxShadow: AppColors.mediumShadow,
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: Icon(
-              Icons.fitness_center_rounded,
-              size: 180,
-              color: Colors.white.withValues(alpha: 0.1),
+  Widget _buildAiRecommendations() {
+    if (_isAiLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_aiRecommendations.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.whiteGlass,
+          borderRadius: AppRadius.card,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+        ),
+        child: Text(
+          "No hay recomendaciones disponibles (Count: ${_aiRecommendations.length}).",
+          style: const TextStyle(color: Colors.black54),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 240,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _aiRecommendations.length,
+        padding: const EdgeInsets.only(bottom: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final rec = _aiRecommendations[index];
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showExerciseDetailSheet(rec),
+              borderRadius: AppRadius.card,
+              child: Container(
+                width: 280,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1D1E),
+                  borderRadius: AppRadius.card,
+                  border: Border.all(
+                    color: AppColors.intensityNeon.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.intensityNeon.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                    ...AppColors.deepShadow,
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -10,
+                      top: -10,
+                      child: Icon(
+                        Icons.bolt_rounded,
+                        size: 150,
+                        color: Colors.white.withValues(alpha: 0.03),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      top: 40,
+                      bottom: 40,
+                      child: Container(
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.intensityNeon,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.psychology_rounded,
+                                color: AppColors.intensityNeon,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "RECOMENDADO PARA TI",
+                                style: AppTextStyles.fitnessCaption.copyWith(
+                                  color: AppColors.intensityNeon,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            rec.exerciseName.toUpperCase(),
+                            style: AppTextStyles.fitnessBold.copyWith(
+                              color: Colors.white,
+                              fontSize: 18,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: Text(
+                              rec.reason,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                                height: 1.5,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "ANALIZADO POR IA",
+                                style: TextStyle(
+                                  color: Colors.white24,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_circle_right_outlined,
+                                color: AppColors.intensityNeon.withValues(
+                                  alpha: 0.5,
+                                ),
+                                size: 24,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    "PODER TOTAL",
-                    style: AppTextStyles.fitnessCaption.copyWith(
-                      color: Colors.white,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "CSEP: LEGS & GLUTES",
-                  style: AppTextStyles.fitnessDisplay.copyWith(
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "45 MIN • ALTA INTENSIDAD",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                  child: const Text(
-                    "COMENZAR AHORA",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
-*/
 }
 
 enum _DayActivity { none, workout, nutrition, both }

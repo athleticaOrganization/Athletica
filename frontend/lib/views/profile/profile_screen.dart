@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/token_storage.dart';
 import '../../models/profile/profile_settings_model.dart';
+import '../../models/profile/comparative_stats_model.dart';
 import '../../models/dashboard/dashboard_model.dart';
 import '../../repositories/dashboard/dashboard_repository.dart';
 import '../../repositories/profile/profile_repository.dart';
@@ -40,11 +41,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isProfileLoading = false;
   bool _isSaving = false;
 
+  ComparativeStatsModel? _comparativeStats;
+  bool _isStatsLoading = false;
+  String _statsPeriod = 'monthly';
+
   @override
   void initState() {
     super.initState();
     _lastRefreshTick = widget.refreshTick;
     _loadProfileSettings();
+    _loadComparativeStats();
   }
 
   @override
@@ -100,6 +106,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadComparativeStats() async {
+    setState(() => _isStatsLoading = true);
+    try {
+      final stats = await _profileRepository.getComparativeStats(
+        period: _statsPeriod,
+      );
+      if (mounted) {
+        setState(() {
+          _comparativeStats = stats;
+          _isStatsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isStatsLoading = false);
+      }
+    }
+  }
+
   Future<void> _saveProfileSettings() async {
     final name = _nameCtrl.text.trim();
     final weight = double.tryParse(_weightCtrl.text.trim());
@@ -140,7 +165,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _nameCtrl.text = updated.name;
         _weightCtrl.text = updated.weight?.toStringAsFixed(1) ?? '';
         _heightCtrl.text = updated.height?.toStringAsFixed(1) ?? '';
-        _selectedGoal = updated.trainingGoal;
         _isSaving = false;
       });
       Navigator.pop(context);
@@ -162,6 +186,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => _GoalsDialog(
+        repository: _vm.repository,
+        onChanged: () async {
+          await _vm.loadAthleteDashboard();
+          if (mounted) setState(() {});
+        },
+      ),
+    );
+  }
+
+  void _openWeightDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => _WeightLogDialog(
         repository: _vm.repository,
         onChanged: () async {
           await _vm.loadAthleteDashboard();
@@ -501,7 +538,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
@@ -511,7 +547,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (_role == 'coach') _buildCoachProfile(),
                           const SizedBox(height: 24),
                           Text(
-                            'Configuracion',
+                            '⚙️ Configuración',
                             style: AppTextStyles.fitnessBold.copyWith(
                               color: AppColors.textPrimary,
                             ),
@@ -547,8 +583,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 24),
         Text(
-          'Tus datos',
+          '📈 Tus datos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -582,7 +619,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: _ProfileStatCard(
                 label: 'Altura',
                 value: _height != null
-                    ? '${_height!.toStringAsFixed(1)} cm'
+                    ? (_height! < 10
+                          ? '${_height!.toStringAsFixed(2)} m'
+                          : '${_height!.toStringAsFixed(0)} cm')
                     : 'Sin dato',
                 icon: Icons.height_rounded,
               ),
@@ -602,7 +641,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Mi objetivo',
+              '🎯 Mi objetivo',
               style: AppTextStyles.fitnessBold.copyWith(
                 color: AppColors.textPrimary,
               ),
@@ -708,14 +747,272 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildOption(
-          icon: Icons.monitor_weight_rounded,
-          label: d?.latestWeight != null
-              ? 'Peso reciente: ${d!.latestWeight!.weight} kg — ${d.latestWeight!.date}'
-              : 'Ver historial de peso',
-          onTap: () {},
+        GestureDetector(
+          onTap: _openWeightDialog,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.card,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.monitor_weight_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        d?.latestWeight != null
+                            ? '${d!.latestWeight!.weight} kg'
+                            : 'Sin registros de peso',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (d?.latestWeight != null)
+                        Text(
+                          d!.latestWeight!.date,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              ],
+            ),
+          ),
         ),
+        const SizedBox(height: 24),
+        _buildComparativeStats(),
       ],
+    );
+  }
+
+  Widget _buildComparativeStats() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '📊 Progreso',
+              style: AppTextStyles.fitnessBold.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            DropdownButton<String>(
+              value: _statsPeriod,
+              dropdownColor: AppColors.surface,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              underline: const SizedBox(),
+              icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+              items: const [
+                DropdownMenuItem(value: 'monthly', child: Text('Mensual')),
+                DropdownMenuItem(value: 'quarterly', child: Text('Trimestral')),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _statsPeriod = val;
+                  });
+                  _loadComparativeStats();
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_isStatsLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          )
+        else if (_comparativeStats == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.card,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: const Text(
+              'No se pudieron cargar las estadísticas',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          )
+        else
+          Column(
+            children: [
+              _buildStatComparativeRow(
+                title: 'Entrenamientos',
+                icon: Icons.fitness_center_rounded,
+                stat: _comparativeStats!.workouts,
+                unit: 'sesiones',
+                invertColors: false,
+              ),
+              const SizedBox(height: 8),
+              _buildStatComparativeRow(
+                title: 'Calorías Diarias',
+                icon: Icons.local_fire_department_rounded,
+                stat: _comparativeStats!.caloriesDailyAvg,
+                unit: 'kcal',
+                invertColors: true,
+              ),
+              const SizedBox(height: 8),
+              _buildStatComparativeRow(
+                title: 'Peso Promedio',
+                icon: Icons.monitor_weight_rounded,
+                stat: _comparativeStats!.weightAvg,
+                unit: 'kg',
+                invertColors: true,
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStatComparativeRow({
+    required String title,
+    required IconData icon,
+    required StatItem stat,
+    required String unit,
+    required bool invertColors,
+  }) {
+    final change = stat.changePercentage;
+    final isZero = change == 0;
+    final isIncrease = change > 0;
+
+    Color changeColor = Colors.grey;
+    IconData changeIcon = Icons.remove_rounded;
+
+    if (!isZero) {
+      if (isIncrease) {
+        changeColor = invertColors ? AppColors.error : AppColors.success;
+        changeIcon = Icons.arrow_upward_rounded;
+      } else {
+        changeColor = invertColors ? AppColors.success : AppColors.error;
+        changeIcon = Icons.arrow_downward_rounded;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        boxShadow: AppColors.softShadow,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${stat.current} $unit',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Anterior: ${stat.previous} $unit',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: changeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(changeIcon, color: changeColor, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${change.abs().toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: changeColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: stat.current > 0 || stat.previous > 0
+                  ? (stat.current /
+                        ((stat.current > stat.previous
+                                    ? stat.current
+                                    : stat.previous) ==
+                                0
+                            ? 1
+                            : (stat.current > stat.previous
+                                  ? stat.current
+                                  : stat.previous)))
+                  : 0.0,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation<Color>(changeColor),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -727,7 +1024,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tus datos',
+          '📈 Tus datos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -754,7 +1051,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Mis grupos',
+          '👥 Mis grupos',
           style: AppTextStyles.fitnessBold.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -1020,6 +1317,376 @@ class _ProfileStatCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(label, style: AppTextStyles.cardSubtitle),
         ],
+      ),
+    );
+  }
+}
+
+// ── Weight Log Dialog ──────────────────────────────────────────────────────
+
+class _WeightLogDialog extends StatefulWidget {
+  final DashboardRepository repository;
+  final VoidCallback onChanged;
+
+  const _WeightLogDialog({required this.repository, required this.onChanged});
+
+  @override
+  State<_WeightLogDialog> createState() => _WeightLogDialogState();
+}
+
+class _WeightLogDialogState extends State<_WeightLogDialog> {
+  List<WeightLogModel> _logs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLogs();
+  }
+
+  Future<void> _loadLogs() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await widget.repository.getWeightLogs();
+      if (mounted) setState(() => _logs = data);
+    } catch (e) {
+      debugPrint('ERROR cargando pesos: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _openForm() {
+    showDialog(
+      context: context,
+      builder: (_) => _WeightFormDialog(
+        repository: widget.repository,
+        onSaved: () {
+          _loadLogs();
+          widget.onChanged();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: SizedBox(
+        width: double.infinity,
+        height: 520,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Historial de peso',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : _logs.isEmpty
+                  ? const Center(child: Text('Sin registros de peso'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _logs.length,
+                      itemBuilder: (context, index) {
+                        final log = _logs[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: AppColors.softShadow,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.monitor_weight_rounded,
+                                  color: AppColors.primary,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${log.weight} kg',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      log.date,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    if (log.bodyFat != null)
+                                      Text(
+                                        'Grasa: ${log.bodyFat}%',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _openForm,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Registrar peso'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Weight Form Dialog ─────────────────────────────────────────────────────
+
+class _WeightFormDialog extends StatefulWidget {
+  final DashboardRepository repository;
+  final VoidCallback onSaved;
+
+  const _WeightFormDialog({required this.repository, required this.onSaved});
+
+  @override
+  State<_WeightFormDialog> createState() => _WeightFormDialogState();
+}
+
+class _WeightFormDialogState extends State<_WeightFormDialog> {
+  final _weightCtrl = TextEditingController();
+  final _bodyFatCtrl = TextEditingController();
+  String? _selectedDate;
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _weightCtrl.dispose();
+    _bodyFatCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate =
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    if (weight == null || weight <= 0) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await widget.repository.addWeightLog(
+        weight,
+        bodyFat: double.tryParse(_bodyFatCtrl.text.trim()),
+        date: _selectedDate,
+      );
+      widget.onSaved();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint('ERROR guardando peso: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Error al guardar peso')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  InputDecoration _inputDec(String label, {IconData? icon}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.primary),
+      prefixIcon: icon != null ? Icon(icon, color: AppColors.primary) : null,
+      filled: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Registrar peso',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _weightCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: _inputDec(
+                'Peso (kg)',
+                icon: Icons.monitor_weight_rounded,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bodyFatCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: _inputDec(
+                '% Grasa corporal (opcional)',
+                icon: Icons.percent,
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _pickDate,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedDate != null
+                        ? AppColors.primary
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      color: AppColors.primary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _selectedDate ?? 'Seleccionar fecha (opcional)',
+                      style: TextStyle(
+                        color: _selectedDate != null
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isSaving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Guardar'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

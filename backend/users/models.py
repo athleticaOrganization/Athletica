@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 
 
 # Extiende el modelo de usuario por defecto de Django.
@@ -120,7 +121,7 @@ class WeightLog(models.Model):
     body_fat = models.FloatField(null=True, blank=True)
 
     # Se registra automáticamente la fecha en que se crea el log.
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(default=timezone.now)
 
     def __str__(self):
         return f"{self.athlete.user.username} - {self.weight}kg ({self.date})"

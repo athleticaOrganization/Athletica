@@ -14,3 +14,7 @@ tzdata==2025.3
 bandit==1.9.4
 safety==3.7.0
 pytest-django==4.9.0
+google-generativeai
+requests==2.34.2
+
+

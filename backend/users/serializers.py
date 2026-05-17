@@ -36,7 +36,6 @@ class WeightLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeightLog
         fields = ["id", "weight", "body_fat", "date"]
-        read_only_fields = ["date"]
 
 
 # Serializer para el perfil del atleta.
@@ -47,7 +46,15 @@ class AthleteProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AthleteProfile
-        fields = ["id", "height", "age", "gender", "activity_level", "goals", "weight_logs"]
+        fields = [
+            "id",
+            "height",
+            "age",
+            "gender",
+            "activity_level",
+            "goals",
+            "weight_logs",
+        ]
 
 
 # Serializer para el perfil del coach.
