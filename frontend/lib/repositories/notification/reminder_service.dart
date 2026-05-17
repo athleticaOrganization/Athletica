@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:frontend/core/api_client.dart';
 import 'package:frontend/models/notification/reminder_model.dart';
 
@@ -46,17 +47,34 @@ class ReminderService {
   }
 
   Future<List<ReminderModel>> getDueReminders() async {
-    final response = await ApiClient.dio.get('reminders/due/');
-    final data = response.data as List<dynamic>;
-    // Debugging: print to console the raw due reminders
     try {
-      // ignore: avoid_print
-      print('ReminderService.getDueReminders -> count=${data.length}');
-      for (final item in data) {
+      final response = await ApiClient.dio.get('reminders/due/');
+      final data = response.data as List<dynamic>;
+      // Debugging: print to console the raw due reminders
+      try {
         // ignore: avoid_print
-        print('  due: ${item}');
+        print('ReminderService.getDueReminders -> count=${data.length}');
+        for (final item in data) {
+          // ignore: avoid_print
+          print('  due: $item');
+        }
+      } catch (_) {}
+      return data.map((json) => ReminderModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      // If we get a 401 it may be mid-refresh; wait a moment and retry once.
+      if (e.response?.statusCode == 401) {
+        // ignore: avoid_print
+        print('ReminderService: received 401, waiting and retrying once');
+        await Future.delayed(const Duration(milliseconds: 500));
+        try {
+          final retry = await ApiClient.dio.get('reminders/due/');
+          final data = retry.data as List<dynamic>;
+          return data.map((json) => ReminderModel.fromJson(json)).toList();
+        } catch (_) {
+          // swallow and rethrow original to let caller handle
+        }
       }
-    } catch (_) {}
-    return data.map((json) => ReminderModel.fromJson(json)).toList();
+      rethrow;
+    }
   }
 }

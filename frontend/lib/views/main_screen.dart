@@ -13,6 +13,7 @@ import '../../core/token_storage.dart';
 import '../../core/api_client.dart';
 import 'notifications/notifications_screen.dart';
 import '../../models/notification/notification_model.dart';
+import '../../models/notification/reminder_model.dart';
 import '../../repositories/notification/reminder_service.dart';
 
 class MainScreen extends StatefulWidget {
@@ -56,6 +57,9 @@ class _MainScreenState extends State<MainScreen> {
           ..clear()
           ..addAll(savedNotifications);
       });
+
+      await _syncNotifiedRemindersToNotifications();
+
       // Check routine updates using the USER ID (since assigned_athletes are users)
       if (role == 'athlete' && userId != null) {
         _checkRoutineUpdate(userId);
@@ -66,12 +70,32 @@ class _MainScreenState extends State<MainScreen> {
         );
       }
 
-      _checkDueReminders();
-      _reminderPollingTimer = Timer.periodic(
-        const Duration(minutes: 1),
-        (_) => _checkDueReminders(),
-      );
+      await _startReminderPollingWhenReady();
     }
+  }
+
+  Future<void> _startReminderPollingWhenReady() async {
+    if (_reminderPollingTimer != null) {
+      return;
+    }
+
+    final accessToken = await TokenStorage.getAccessToken();
+    if (accessToken == null) {
+      return;
+    }
+
+    _startReminderPolling();
+  }
+
+  void _startReminderPolling() {
+    if (_reminderPollingTimer != null) {
+      return;
+    }
+    _checkDueReminders();
+    _reminderPollingTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _checkDueReminders(),
+    );
   }
 
   @override
@@ -92,35 +116,117 @@ class _MainScreenState extends State<MainScreen> {
       } catch (_) {}
       if (!mounted || dueReminders.isEmpty) return;
 
-      setState(() {
-        for (final reminder in dueReminders) {
-          final isTraining = reminder.activityType == 'training';
-          final reminderNotification = NotificationModel(
-            id: 'reminder-${reminder.id}-${DateTime.now().millisecondsSinceEpoch}',
-            title: 'Recordatorio',
-            message: isTraining
-                ? 'Es hora de tu entrenamiento programado.'
-                : 'Es hora de registrar tu alimentación.',
-            date: DateTime.now(),
-            type: NotificationType.reminder,
-            relatedId: reminder.id.toString(),
-          );
-          _notifications.insert(
-            0,
-            reminderNotification,
-          );
+      final List<NotificationModel> newReminderNotifications = [];
+      for (final reminder in dueReminders) {
+        final alreadyExists = _notifications.any(
+          (n) =>
+              n.type == NotificationType.reminder &&
+              n.relatedId == reminder.id.toString(),
+        );
+        if (alreadyExists) {
+          continue;
         }
+
+        newReminderNotifications.add(
+          _buildReminderNotification(reminder),
+        );
+      }
+
+      if (newReminderNotifications.isEmpty) return;
+
+      setState(() {
+        _notifications.insertAll(0, newReminderNotifications);
       });
 
       await TokenStorage.saveNotifications(_notifications);
 
+      // Show a visible in-app popup for the newest reminder.
       _showTopNotificationBanner(
-        'Tienes recordatorios pendientes',
+        newReminderNotifications.first.title,
         onAction: _openNotificationsScreen,
       );
+
+      await _syncNotifiedRemindersToNotifications();
     } catch (e) {
       debugPrint('Error checking due reminders (Silent): $e');
     }
+  }
+
+  Future<void> _syncNotifiedRemindersToNotifications() async {
+    try {
+      final reminders = await _reminderService.getReminders();
+      final notifiedReminders = reminders.where((reminder) => reminder.notifiedAt != null);
+      if (notifiedReminders.isEmpty || !mounted) {
+        return;
+      }
+
+      final List<NotificationModel> newNotifications = [];
+      for (final reminder in notifiedReminders) {
+        final alreadyExists = _notifications.any(
+          (notification) =>
+              notification.type == NotificationType.reminder &&
+              notification.relatedId == reminder.id.toString(),
+        );
+        if (alreadyExists) {
+          continue;
+        }
+
+        newNotifications.add(
+          _buildReminderNotification(
+            reminder,
+            date: reminder.notifiedAt ?? reminder.remindAt,
+          ),
+        );
+      }
+
+      if (newNotifications.isEmpty) {
+        return;
+      }
+
+      setState(() {
+        _notifications.insertAll(0, newNotifications);
+      });
+
+      await TokenStorage.saveNotifications(_notifications);
+    } catch (e) {
+      debugPrint('Error syncing notified reminders (Silent): $e');
+    }
+  }
+
+  String _reminderTitle(ReminderModel reminder) {
+    switch (reminder.activityType) {
+      case 'training':
+        return 'Entrenamiento';
+      case 'nutrition':
+        return 'Alimentación';
+      default:
+        return 'Recordatorio';
+    }
+  }
+
+  String _reminderMessage(ReminderModel reminder) {
+    switch (reminder.activityType) {
+      case 'training':
+        return 'Recuerda realizar tu entrenamiento de hoy.';
+      case 'nutrition':
+        return 'Recuerda registrar tus comidas del día de hoy.';
+      default:
+        return 'Tienes un recordatorio pendiente para hoy.';
+    }
+  }
+
+  NotificationModel _buildReminderNotification(
+    ReminderModel reminder, {
+    DateTime? date,
+  }) {
+    return NotificationModel(
+      id: 'reminder-${reminder.id}',
+      title: _reminderTitle(reminder),
+      message: _reminderMessage(reminder),
+      date: date ?? DateTime.now(),
+      type: NotificationType.reminder,
+      relatedId: reminder.id.toString(),
+    );
   }
 
   Future<void> _checkRoutineUpdate(int userId) async {
@@ -180,7 +286,6 @@ class _MainScreenState extends State<MainScreen> {
     _activeBannerEntry?.remove();
 
     final overlay = Overlay.of(context, rootOverlay: true);
-    if (overlay == null) return;
 
     late final OverlayEntry entry;
     entry = OverlayEntry(
@@ -264,9 +369,15 @@ class _MainScreenState extends State<MainScreen> {
       MaterialPageRoute(
         builder: (context) => NotificationsScreen(
           notifications: _notifications,
-            onClearAll: () {
+          onClearAll: () {
             setState(() => _notifications.clear());
-              TokenStorage.clearNotifications();
+            TokenStorage.clearNotifications();
+          },
+          onDeleteNotification: (notificationId) {
+            setState(() {
+              _notifications.removeWhere((notification) => notification.id == notificationId);
+            });
+            TokenStorage.saveNotifications(_notifications);
           },
         ),
       ),
