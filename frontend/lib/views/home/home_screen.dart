@@ -433,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: compact ? 155 : null,
+        width: compact ? 150 : null,
         padding: EdgeInsets.all(compact ? 14 : 18),
         decoration: BoxDecoration(
           gradient: unlocked
@@ -535,41 +535,44 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: SafeArea(
             top: false,
+            bottom: true,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 46,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(100),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 46,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Todos los logros disponibles',
-                    style: AppTextStyles.fitnessBold.copyWith(
-                      fontSize: 22,
-                      color: AppColors.textPrimary,
+                    const SizedBox(height: 18),
+                    Text(
+                      'Todos los logros disponibles',
+                      style: AppTextStyles.fitnessBold.copyWith(
+                        fontSize: 22,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Se muestran en color los logros que ya cumpliste y en gris los bloqueados.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary.withValues(alpha: 0.9),
-                      fontSize: 12,
-                      height: 1.4,
+                    const SizedBox(height: 6),
+                    Text(
+                      'Se muestran en color los logros que ya cumpliste y en gris los bloqueados.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Expanded(
-                    child: GridView.builder(
+                    const SizedBox(height: 18),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: badges.length,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
@@ -586,8 +589,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -656,6 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 205,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               itemCount: previewBadges.length,
               separatorBuilder: (_, index) => const SizedBox(width: 14),
               itemBuilder: (context, index) {

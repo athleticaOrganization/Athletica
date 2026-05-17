@@ -358,10 +358,14 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: LayoutBuilder(builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 360;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Text(
                 _isEdit ? 'Editar recordatorio' : 'Nuevo recordatorio',
                 style: const TextStyle(
@@ -391,108 +395,205 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
                 onChanged: (value) => setState(() => _activityType = value),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _recurrence,
-                      decoration: InputDecoration(
-                        labelText: 'Recurrencia',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+              // Recurrence + Timezone: responsive layout
+              isNarrow
+                  ? Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: _recurrence,
+                          decoration: InputDecoration(
+                            labelText: 'Recurrencia',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'none',
+                              child: Text('Una sola vez'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'daily',
+                              child: Text('Diariamente'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'weekly',
+                              child: Text('Semanalmente'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'biweekly',
+                              child: Text('Cada 2 semanas'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'monthly',
+                              child: Text('Mensualmente'),
+                            ),
+                          ],
+                          onChanged: (value) => setState(() => _recurrence = value),
                         ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'none',
-                          child: Text('Una sola vez'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'daily',
-                          child: Text('Diariamente'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'weekly',
-                          child: Text('Semanalmente'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'biweekly',
-                          child: Text('Cada 2 semanas'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'monthly',
-                          child: Text('Mensualmente'),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          initialValue: _timezone,
+                          decoration: InputDecoration(
+                            labelText: 'Zona horaria',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'UTC', child: Text('UTC')),
+                            DropdownMenuItem(
+                              value: 'America/Bogota',
+                              child: Text('Colombia'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'America/New_York',
+                              child: Text('Nueva York'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'America/Los_Angeles',
+                              child: Text('Los Ángeles'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Europe/London',
+                              child: Text('Londres'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Europe/Paris',
+                              child: Text('París'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Asia/Tokyo',
+                              child: Text('Tokio'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Australia/Sydney',
+                              child: Text('Sydney'),
+                            ),
+                          ],
+                          onChanged: (value) => setState(() => _timezone = value),
                         ),
                       ],
-                      onChanged: (value) => setState(() => _recurrence = value),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _timezone,
-                      decoration: InputDecoration(
-                        labelText: 'Zona horaria',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _recurrence,
+                            decoration: InputDecoration(
+                              labelText: 'Recurrencia',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'none',
+                                child: Text('Una sola vez'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'daily',
+                                child: Text('Diariamente'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'weekly',
+                                child: Text('Semanalmente'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'biweekly',
+                                child: Text('Cada 2 semanas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'monthly',
+                                child: Text('Mensualmente'),
+                              ),
+                            ],
+                            onChanged: (value) => setState(() => _recurrence = value),
+                          ),
                         ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'UTC', child: Text('UTC')),
-                        DropdownMenuItem(
-                          value: 'America/Bogota',
-                          child: Text('Colombia'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'America/New_York',
-                          child: Text('Nueva York'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'America/Los_Angeles',
-                          child: Text('Los Ángeles'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Europe/London',
-                          child: Text('Londres'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Europe/Paris',
-                          child: Text('París'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Asia/Tokyo',
-                          child: Text('Tokio'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Australia/Sydney',
-                          child: Text('Sydney'),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _timezone,
+                            decoration: InputDecoration(
+                              labelText: 'Zona horaria',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'UTC', child: Text('UTC')),
+                              DropdownMenuItem(
+                                value: 'America/Bogota',
+                                child: Text('Colombia'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'America/New_York',
+                                child: Text('Nueva York'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'America/Los_Angeles',
+                                child: Text('Los Ángeles'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Europe/London',
+                                child: Text('Londres'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Europe/Paris',
+                                child: Text('París'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Asia/Tokyo',
+                                child: Text('Tokio'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Australia/Sydney',
+                                child: Text('Sydney'),
+                              ),
+                            ],
+                            onChanged: (value) => setState(() => _timezone = value),
+                          ),
                         ),
                       ],
-                      onChanged: (value) => setState(() => _timezone = value),
                     ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickDate,
-                      icon: const Icon(Icons.calendar_today_rounded),
-                      label: Text(dateText),
+              // Date + Time selectors: responsive
+              isNarrow
+                  ? Column(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _pickDate,
+                          icon: const Icon(Icons.calendar_today_rounded),
+                          label: Text(dateText),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _pickTime,
+                          icon: const Icon(Icons.access_time_rounded),
+                          label: Text(timeText),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickDate,
+                            icon: const Icon(Icons.calendar_today_rounded),
+                            label: Text(dateText),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickTime,
+                            icon: const Icon(Icons.access_time_rounded),
+                            label: Text(timeText),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickTime,
-                      icon: const Icon(Icons.access_time_rounded),
-                      label: Text(timeText),
-                    ),
-                  ),
-                ],
-              ),
               if (remindAt != null) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -521,7 +622,9 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
                       : Text(_isEdit ? 'Actualizar' : 'Guardar recordatorio'),
                 ),
               ),
-            ],
+                ],
+              );
+            }),
           ),
         ),
       ),
