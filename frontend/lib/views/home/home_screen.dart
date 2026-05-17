@@ -465,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: accent.withValues(alpha: unlocked ? 0.14 : 0.06),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: _buildBadgeSvg(badge, size: compact ? 52 : 64),
+                  child: _buildBadgeSvg(badge, size: compact ? 62 : 78),
                 ),
                 const Spacer(),
                 Icon(
@@ -667,67 +667,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _buildBadgeMetricChip(
-              'Alimentación',
-              _badgeStats.nutritionStreak,
-              const Color(0xFF22C55E),
-            ),
-            _buildBadgeMetricChip(
-              'Ejercicio',
-              _badgeStats.workoutStreak,
-              const Color(0xFFFF6B35),
-            ),
-            _buildBadgeMetricChip(
-              'Completa',
-              _badgeStats.completeStreak,
-              const Color(0xFF06B6D4),
-            ),
-            _buildBadgeMetricChip(
-              'Desbloqueados',
-              _userBadgeCount,
-              const Color(0xFF8B5CF6),
-            ),
-          ],
-        ),
       ],
-    );
-  }
-
-  Widget _buildBadgeMetricChip(String label, int value, Color accent) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: accent,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$label: $value',
-            style: TextStyle(
-              color: accent,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
