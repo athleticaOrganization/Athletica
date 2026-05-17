@@ -20,7 +20,7 @@ class BadgeService:
     """
     Servicio centralizado para manejar la lógica de badges.
     Proporciona métodos para calcular streaks, validar condiciones y otorgar badges.
-    
+
     Los streaks se calculan basándose en:
     - Nutrición: Registros únicos por día en MealRecord
     - Ejercicio: Sesiones únicas por día en WorkoutSession
@@ -37,11 +37,11 @@ class BadgeService:
     def _get_unique_days_from_queryset(queryset, date_field):
         """
         Utility para obtener un set de fechas únicas de un queryset.
-        
+
         Args:
             queryset: QuerySet con registros que tienen un campo de fecha
             date_field: Nombre del campo DateField o DateTimeField
-        
+
         Returns:
             Set de objetos date únicos
         """
@@ -52,10 +52,10 @@ class BadgeService:
         """
         Calcula la racha actual de días consecutivos con registros de alimentación.
         Busca hacia atrás desde as_of_date (hoy si no se especifica).
-        
+
         Reutiliza: MealRecord model que ya contiene la lógica de relación
                    athlete → AthleteProfile → User
-        
+
         Retorna: Número de días consecutivos, o 0 si no hay racha activa
         """
         if as_of_date is None:
@@ -69,8 +69,7 @@ class BadgeService:
         # Obtener todos los días únicos con registros de alimentación
         # MealRecord.date es un DateField, no DateTimeField
         days_with_records = BadgeService._get_unique_days_from_queryset(
-            MealRecord.objects.filter(athlete=athlete_profile),
-            "date"
+            MealRecord.objects.filter(athlete=athlete_profile), "date"
         )
 
         if not days_with_records:
@@ -91,10 +90,10 @@ class BadgeService:
         """
         Calcula la racha actual de días consecutivos con sesiones de entrenamiento.
         Busca hacia atrás desde as_of_date (hoy si no se especifica).
-        
+
         Reutiliza: WorkoutSession model que vincula directamente con User
                    y almacena la fecha en el campo 'date' (DateTimeField)
-        
+
         Retorna: Número de días consecutivos, o 0 si no hay racha activa
         """
         if as_of_date is None:
@@ -104,9 +103,7 @@ class BadgeService:
         # Obtener todos los días únicos con sesiones de entrenamiento
         # Convertir DateTimeField a date usando __date lookup
         days_with_workouts = set(
-            WorkoutSession.objects.filter(user=user)
-            .values_list("date__date", flat=True)
-            .distinct()
+            WorkoutSession.objects.filter(user=user).values_list("date__date", flat=True).distinct()
         )
 
         if not days_with_workouts:
@@ -126,11 +123,11 @@ class BadgeService:
     def get_complete_streak(user: User, as_of_date=None) -> int:
         """
         Calcula la racha de días con AMBAS actividades: alimentación y ejercicio.
-        
-        Reutiliza: 
+
+        Reutiliza:
         - get_nutrition_streak() para obtener días con alimentación
         - get_workout_streak() para obtener días con ejercicio
-        
+
         Retorna: Número de días consecutivos con ambas actividades, o 0
         """
         if as_of_date is None:
@@ -143,15 +140,12 @@ class BadgeService:
 
         # Días con registros de alimentación
         nutrition_days = BadgeService._get_unique_days_from_queryset(
-            MealRecord.objects.filter(athlete=athlete_profile),
-            "date"
+            MealRecord.objects.filter(athlete=athlete_profile), "date"
         )
 
         # Días con sesiones de entrenamiento
         workout_days = set(
-            WorkoutSession.objects.filter(user=user)
-            .values_list("date__date", flat=True)
-            .distinct()
+            WorkoutSession.objects.filter(user=user).values_list("date__date", flat=True).distinct()
         )
 
         # Intersección: días con ambas actividades

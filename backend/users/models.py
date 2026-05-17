@@ -236,6 +236,7 @@ class Follow(models.Model):
 
 # ============= BADGES (INSIGNIAS) =============
 
+
 class Badge(models.Model):
     """
     Define las insignias (badges) disponibles en el sistema.
@@ -251,22 +252,22 @@ class Badge(models.Model):
 
     badge_type = models.CharField(max_length=20, choices=BADGE_TYPES)
     level = models.IntegerField(help_text="Nivel/número de la insignia (1, 3, 7, etc.)")
-    
+
     name = models.CharField(max_length=200, help_text="Nombre descriptivo de la insignia")
     description = models.TextField(help_text="Descripción de cómo se obtiene esta insignia")
-    
+
     # Campo para almacenar el nombre del archivo SVG (sin ruta)
     svg_filename = models.CharField(
         max_length=255,
         help_text="Nombre del archivo SVG en backend/users/badges/svg/",
         unique=True,
     )
-    
+
     # Condición para obtener la insignia (descriptivo)
     unlock_condition = models.TextField(
         help_text="Descripción de la condición requerida para desbloquear"
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -289,11 +290,9 @@ class UserBadge(models.Model):
     Permite rastrear qué insignias tiene cada usuario y cuándo las obtuvo.
     """
 
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="badges"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="badges")
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name="unlocked_by")
-    
+
     unlocked_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -302,4 +301,6 @@ class UserBadge(models.Model):
         ordering = ["-unlocked_at"]
 
     def __str__(self):
-        return f"{self.user.username} - {self.badge.get_badge_type_display()} Nivel {self.badge.level}"
+        return (
+            f"{self.user.username} - {self.badge.get_badge_type_display()} Nivel {self.badge.level}"
+        )

@@ -5,7 +5,17 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import AthleteProfile, Badge, CoachProfile, Follow, Goal, Reminder, User, UserBadge, WeightLog
+from .models import (
+    AthleteProfile,
+    Badge,
+    CoachProfile,
+    Follow,
+    Goal,
+    Reminder,
+    User,
+    UserBadge,
+    WeightLog,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -301,8 +311,10 @@ class FollowSerializer(serializers.ModelSerializer):
 
 # ============= BADGE SERIALIZERS =============
 
+
 class BadgeSerializer(serializers.ModelSerializer):
     """Serializer para mostrar información de una insignia"""
+
     badge_type_display = serializers.CharField(source="get_badge_type_display", read_only=True)
 
     class Meta:
@@ -323,6 +335,7 @@ class BadgeSerializer(serializers.ModelSerializer):
 
 class UserBadgeSerializer(serializers.ModelSerializer):
     """Serializer para mostrar badges desbloqueados por un usuario"""
+
     badge = BadgeSerializer(read_only=True)
     badge_id = serializers.IntegerField(write_only=True, required=False)
 
@@ -339,7 +352,7 @@ class UserBadgeSerializer(serializers.ModelSerializer):
 
 class UserBadgesSummarySerializer(serializers.Serializer):
     """Serializer para el resumen completo de badges de un usuario"""
+
     total_badges = serializers.IntegerField()
     unlocked_badges = UserBadgeSerializer(many=True)
     stats = serializers.DictField()
-

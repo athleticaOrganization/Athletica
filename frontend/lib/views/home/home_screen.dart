@@ -255,7 +255,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final availableBadges = results[0] as List<BadgeDefinition>;
       final summary = results[1] as BadgeSummaryResponse;
-      final unlockedIds = summary.unlockedBadges.map((item) => item.badge.id).toSet();
+      final unlockedIds = summary.unlockedBadges
+          .map((item) => item.badge.id)
+          .toSet();
 
       if (!mounted) return;
 
@@ -268,7 +270,9 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       if (summary.newlyAwarded.isNotEmpty && mounted) {
-        final names = summary.newlyAwarded.map((badge) => badge.name).join(', ');
+        final names = summary.newlyAwarded
+            .map((badge) => badge.name)
+            .join(', ');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Nuevo logro desbloqueado: $names'),
@@ -334,10 +338,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final preview = <BadgeDefinition>[];
 
     for (final type in typeOrder) {
-      final badge = _availableBadges
-          .where((item) => item.badgeType == type)
-          .toList()
-        ..sort((a, b) => a.level.compareTo(b.level));
+      final badge =
+          _availableBadges.where((item) => item.badgeType == type).toList()
+            ..sort((a, b) => a.level.compareTo(b.level));
       if (badge.isNotEmpty) {
         preview.add(badge.first);
       }
@@ -413,10 +416,26 @@ class _HomeScreenState extends State<HomeScreen> {
         colorFilter: unlocked
             ? null
             : const ColorFilter.matrix(<double>[
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0, 0, 0, 1, 0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
               ]),
       ),
     );
@@ -481,7 +500,9 @@ class _HomeScreenState extends State<HomeScreen> {
               maxLines: compact ? 2 : 3,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.fitnessBold.copyWith(
-                color: unlocked ? AppColors.textPrimary : AppColors.textSecondary,
+                color: unlocked
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
                 fontSize: compact ? 13 : 15,
                 height: 1.15,
               ),
@@ -500,7 +521,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               _badgeProgressLabel(badge),
               style: TextStyle(
-                color: unlocked ? AppColors.textSecondary : AppColors.buttonDisabledText,
+                color: unlocked
+                    ? AppColors.textSecondary
+                    : AppColors.buttonDisabledText,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -576,17 +599,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemCount: badges.length,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 0.86,
-                      ),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: 0.86,
+                          ),
                       itemBuilder: (context, index) {
                         final badge = badges[index];
-                        return _buildBadgeCard(
-                          badge,
-                          onTap: null,
-                        );
+                        return _buildBadgeCard(badge, onTap: null);
                       },
                     ),
                   ],
@@ -1214,10 +1234,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Text(
               actionLabel,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
           ),
       ],

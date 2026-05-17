@@ -19,7 +19,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from nutrition.models import MealRecord
 from routines.models import WorkoutSession
 
-from .models import AthleteProfile, Badge, CoachProfile, Follow, Goal, Reminder, User, UserBadge, WeightLog
+from .models import (
+    AthleteProfile,
+    Badge,
+    CoachProfile,
+    Follow,
+    Goal,
+    Reminder,
+    User,
+    UserBadge,
+    WeightLog,
+)
 from .serializers import (
     AthleteSearchSerializer,
     BadgeSerializer,
@@ -719,6 +729,7 @@ def PasswordResetConfirmView(request):
 
 # ============= BADGE ENDPOINTS =============
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def BadgesListView(request):
@@ -758,7 +769,7 @@ def UserBadgesView(request):
     from .badge_service import BadgeService
 
     user = request.user
-    
+
     # Validar que el usuario tenga AthleteProfile
     try:
         user.athleteprofile
@@ -769,14 +780,18 @@ def UserBadgesView(request):
         )
 
     # Obtener badges desbloqueados
-    user_badges = UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
-    
+    user_badges = (
+        UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
+    )
+
     # Validar y otorgar nuevos badges si aplica
     new_badges = BadgeService.check_and_award_badges(user)
-    
+
     # Si se otorgaron nuevos badges, refrescar la lista
     if new_badges:
-        user_badges = UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
+        user_badges = (
+            UserBadge.objects.filter(user=user).select_related("badge").order_by("-unlocked_at")
+        )
 
     # Construir respuesta con información completa
     summary = {

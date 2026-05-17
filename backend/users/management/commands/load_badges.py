@@ -127,12 +127,6 @@ class Command(BaseCommand):
                         )
                     )
 
-        self.stdout.write(
-            self.style.SUCCESS(f"\n✓ Insignias cargadas exitosamente!")
-        )
-        self.stdout.write(
-            self.style.SUCCESS(f"  Creadas: {created_count}")
-        )
-        self.stdout.write(
-            self.style.SUCCESS(f"  Actualizadas: {updated_count}")
-        )
+        self.stdout.write(self.style.SUCCESS(f"\n✓ Insignias cargadas exitosamente!"))
+        self.stdout.write(self.style.SUCCESS(f"  Creadas: {created_count}"))
+        self.stdout.write(self.style.SUCCESS(f"  Actualizadas: {updated_count}"))

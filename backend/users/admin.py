@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import AthleteProfile, Badge, CoachProfile, Follow, Goal, Reminder, User, UserBadge, WeightLog
+from .models import (
+    AthleteProfile,
+    Badge,
+    CoachProfile,
+    Follow,
+    Goal,
+    Reminder,
+    User,
+    UserBadge,
+    WeightLog,
+)
 
 admin.site.register(Follow)
 
@@ -55,19 +65,10 @@ class BadgeAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
-        ("Información", {
-            "fields": ("badge_type", "level", "name", "description")
-        }),
-        ("Media", {
-            "fields": ("svg_filename",)
-        }),
-        ("Condiciones", {
-            "fields": ("unlock_condition",)
-        }),
-        ("Timestamps", {
-            "fields": ("created_at", "updated_at"),
-            "classes": ("collapse",)
-        }),
+        ("Información", {"fields": ("badge_type", "level", "name", "description")}),
+        ("Media", {"fields": ("svg_filename",)}),
+        ("Condiciones", {"fields": ("unlock_condition",)}),
+        ("Timestamps", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
 
@@ -77,7 +78,6 @@ class UserBadgeAdmin(admin.ModelAdmin):
     list_filter = ("badge__badge_type", "unlocked_at")
     search_fields = ("user__username", "badge__name")
     readonly_fields = ("unlocked_at",)
-
 
 
 @admin.register(Reminder)

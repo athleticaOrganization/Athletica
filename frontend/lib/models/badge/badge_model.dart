@@ -95,7 +95,9 @@ class BadgeSummaryResponse {
       newlyAwarded: (json['newly_awarded'] as List? ?? [])
           .map((item) => BadgeDefinition.fromJson(item as Map<String, dynamic>))
           .toList(),
-      stats: BadgeStats.fromJson((json['stats'] as Map<String, dynamic>?) ?? {}),
+      stats: BadgeStats.fromJson(
+        (json['stats'] as Map<String, dynamic>?) ?? {},
+      ),
     );
   }
 }
