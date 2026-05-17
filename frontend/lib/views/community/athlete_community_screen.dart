@@ -602,8 +602,9 @@ class _FollowButtonState extends State<_FollowButton> {
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
