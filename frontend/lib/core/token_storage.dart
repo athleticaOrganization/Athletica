@@ -12,6 +12,7 @@ class TokenStorage {
   static const _roleKey = 'user_role';
   static const _lastRoutineKey = 'last_routine_id';
   static const _notificationsKey = 'saved_notifications';
+  static const _shownReminderIdsKey = 'shown_reminder_ids';
 
   static Future<void> saveTokens({
     required String access,
@@ -83,6 +84,7 @@ class TokenStorage {
     await prefs.remove(_roleKey);
     await prefs.remove(_lastRoutineKey);
     await prefs.remove(_notificationsKey);
+    await prefs.remove(_shownReminderIdsKey);
   }
 
   static Future<void> saveLastRoutineId(int? id) async {
@@ -119,5 +121,29 @@ class TokenStorage {
   static Future<void> clearNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_notificationsKey);
+  }
+
+  static Future<void> addShownReminderId(int reminderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_shownReminderIdsKey);
+    final Set<String> ids = <String>{};
+    if (raw != null && raw.isNotEmpty) {
+      ids.addAll((jsonDecode(raw) as List<dynamic>).cast<String>());
+    }
+    ids.add(reminderId.toString());
+    await prefs.setString(_shownReminderIdsKey, jsonEncode(ids.toList()));
+  }
+
+  static Future<Set<int>> getShownReminderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_shownReminderIdsKey);
+    if (raw == null || raw.isEmpty) return {};
+    final decoded = (jsonDecode(raw) as List<dynamic>).cast<String>();
+    return decoded.map((id) => int.parse(id)).toSet();
+  }
+
+  static Future<void> clearShownReminderIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_shownReminderIdsKey);
   }
 }

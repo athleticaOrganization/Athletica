@@ -97,6 +97,23 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
+  String _recurrenceLabel(String recurrence) {
+    switch (recurrence) {
+      case 'none':
+        return 'Una sola vez';
+      case 'daily':
+        return 'Diariamente';
+      case 'weekly':
+        return 'Semanalmente';
+      case 'biweekly':
+        return 'Cada 2 semanas';
+      case 'monthly':
+        return 'Mensualmente';
+      default:
+        return recurrence;
+    }
+  }
+
   String _formatDate(DateTime date) {
     final d = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     final t = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -150,7 +167,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       _activityLabel(reminder.activityType),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: Text(_formatDate(reminder.remindAt)),
+                    subtitle: Text(
+                      '${_formatDate(reminder.remindAt)} • ${_recurrenceLabel(reminder.recurrence)}',
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -193,6 +212,8 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
   String? _activityType;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  String? _recurrence;
+  String? _timezone;
   bool _isSaving = false;
 
   bool get _isEdit => widget.reminder != null;
@@ -205,6 +226,11 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
       _activityType = widget.reminder!.activityType;
       _selectedDate = DateTime(remindAt.year, remindAt.month, remindAt.day);
       _selectedTime = TimeOfDay(hour: remindAt.hour, minute: remindAt.minute);
+      _recurrence = widget.reminder!.recurrence;
+      _timezone = widget.reminder!.timezone;
+    } else {
+      _recurrence = 'none';
+      _timezone = 'UTC';
     }
   }
 
@@ -213,7 +239,7 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 3650)),
     );
     if (picked != null) {
@@ -259,11 +285,15 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
           widget.reminder!.id,
           activityType: _activityType,
           remindAt: remindAt,
+          recurrence: _recurrence,
+          timezone: _timezone,
         );
       } else {
         await widget.service.createReminder(
           activityType: _activityType!,
           remindAt: remindAt,
+          recurrence: _recurrence,
+          timezone: _timezone,
         );
       }
 
@@ -338,6 +368,53 @@ class _ReminderFormSheetState extends State<_ReminderFormSheet> {
                   ),
                 ],
                 onChanged: (value) => setState(() => _activityType = value),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _recurrence,
+                      decoration: InputDecoration(
+                        labelText: 'Recurrencia',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'none', child: Text('Una sola vez')),
+                        DropdownMenuItem(value: 'daily', child: Text('Diariamente')),
+                        DropdownMenuItem(value: 'weekly', child: Text('Semanalmente')),
+                        DropdownMenuItem(value: 'biweekly', child: Text('Cada 2 semanas')),
+                        DropdownMenuItem(value: 'monthly', child: Text('Mensualmente')),
+                      ],
+                      onChanged: (value) => setState(() => _recurrence = value),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _timezone,
+                      decoration: InputDecoration(
+                        labelText: 'Zona horaria',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'UTC', child: Text('UTC')),
+                        DropdownMenuItem(value: 'America/Bogota', child: Text('Colombia')),
+                        DropdownMenuItem(value: 'America/New_York', child: Text('Nueva York')),
+                        DropdownMenuItem(value: 'America/Los_Angeles', child: Text('Los Ángeles')),
+                        DropdownMenuItem(value: 'Europe/London', child: Text('Londres')),
+                        DropdownMenuItem(value: 'Europe/Paris', child: Text('París')),
+                        DropdownMenuItem(value: 'Asia/Tokyo', child: Text('Tokio')),
+                        DropdownMenuItem(value: 'Australia/Sydney', child: Text('Sydney')),
+                      ],
+                      onChanged: (value) => setState(() => _timezone = value),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Row(

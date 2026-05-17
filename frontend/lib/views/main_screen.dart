@@ -160,8 +160,15 @@ class _MainScreenState extends State<MainScreen> {
         return;
       }
 
+      final shownIds = await TokenStorage.getShownReminderIds();
+
       final List<NotificationModel> newNotifications = [];
       for (final reminder in notifiedReminders) {
+        // Skip if already shown/deleted by user
+        if (shownIds.contains(reminder.id)) {
+          continue;
+        }
+
         final alreadyExists = _notifications.any(
           (notification) =>
               notification.type == NotificationType.reminder &&
@@ -374,10 +381,26 @@ class _MainScreenState extends State<MainScreen> {
             TokenStorage.clearNotifications();
           },
           onDeleteNotification: (notificationId) {
+            final notification = _notifications.firstWhere(
+              (n) => n.id == notificationId,
+              orElse: () => NotificationModel(
+                id: notificationId,
+                title: '',
+                message: '',
+                date: DateTime.now(),
+                type: NotificationType.system,
+              ),
+            );
             setState(() {
               _notifications.removeWhere((notification) => notification.id == notificationId);
             });
             TokenStorage.saveNotifications(_notifications);
+            if (notification.type == NotificationType.reminder && notification.relatedId != null) {
+              final reminderId = int.tryParse(notification.relatedId!);
+              if (reminderId != null) {
+                TokenStorage.addShownReminderId(reminderId);
+              }
+            }
           },
         ),
       ),

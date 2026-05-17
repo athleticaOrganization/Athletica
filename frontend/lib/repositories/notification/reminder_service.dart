@@ -12,6 +12,8 @@ class ReminderService {
   Future<ReminderModel> createReminder({
     required String activityType,
     required DateTime remindAt,
+    String? recurrence,
+    String? timezone,
     bool isActive = true,
   }) async {
     final response = await ApiClient.dio.post(
@@ -19,6 +21,8 @@ class ReminderService {
       data: {
         'activity_type': activityType,
         'remind_at': remindAt.toUtc().toIso8601String(),
+        'recurrence': recurrence ?? 'none',
+        'timezone': timezone ?? 'UTC',
         'is_active': isActive,
       },
     );
@@ -29,6 +33,8 @@ class ReminderService {
     int id, {
     String? activityType,
     DateTime? remindAt,
+    String? recurrence,
+    String? timezone,
     bool? isActive,
   }) async {
     final payload = <String, dynamic>{};
@@ -36,6 +42,8 @@ class ReminderService {
     if (remindAt != null) {
       payload['remind_at'] = remindAt.toUtc().toIso8601String();
     }
+    if (recurrence != null) payload['recurrence'] = recurrence;
+    if (timezone != null) payload['timezone'] = timezone;
     if (isActive != null) payload['is_active'] = isActive;
 
     final response = await ApiClient.dio.put('reminders/$id/', data: payload);

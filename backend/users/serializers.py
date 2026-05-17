@@ -75,6 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             "height",
             "weight",
             "training_goal",
+            "timezone",
             "athlete_profile",
             "coach_profile",
         ]
@@ -86,6 +87,7 @@ class ProfileSettingsSerializer(serializers.Serializer):
     weight = serializers.FloatField(required=False, min_value=1)
     height = serializers.FloatField(required=False, min_value=1)
     training_goal = serializers.ChoiceField(required=False, choices=Goal.GOAL_CHOICES)
+    timezone = serializers.CharField(required=False, max_length=50)
 
 
 class ReminderSerializer(serializers.ModelSerializer):
@@ -95,6 +97,8 @@ class ReminderSerializer(serializers.ModelSerializer):
             "id",
             "activity_type",
             "remind_at",
+            "recurrence",
+            "timezone",
             "is_active",
             "notified_at",
             "created_at",

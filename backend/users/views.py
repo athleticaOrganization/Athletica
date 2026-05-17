@@ -149,6 +149,7 @@ def ProfileSettingsView(request):
             "weight": user.weight,
             "height": user.height,
             "training_goal": user.training_goal or None,
+            "timezone": user.timezone,
             "role": user.role,
         }
 
@@ -191,6 +192,9 @@ def ProfileSettingsView(request):
 
     if "training_goal" in data:
         user.training_goal = data["training_goal"]
+
+    if "timezone" in data:
+        user.timezone = data["timezone"]
 
     user.save()
 
