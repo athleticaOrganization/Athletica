@@ -107,6 +107,9 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
     assigned_athletes_info = serializers.SerializerMethodField()
     creator_name = serializers.CharField(source="created_by.first_name", read_only=True)
     creator_is_following = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
+    user_liked = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Routine
@@ -123,6 +126,9 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             "exercises",
             "assigned_athletes_count",
             "assigned_athletes_info",
+            "likes_count",
+            "user_liked",
+            "comments_count",
         ]
 
     def get_exercises(self, routine):
@@ -160,3 +166,15 @@ class RoutineDetailSerializer(serializers.ModelSerializer):
             follower=request.user,
             following_id=routine.created_by_id,
         ).exists()
+
+    def get_likes_count(self, routine):
+        return routine.reactions.filter(reaction_type="like").count()
+
+    def get_user_liked(self, routine):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return routine.reactions.filter(user=request.user, reaction_type="like").exists()
+
+    def get_comments_count(self, routine):
+        return routine.comments.filter(parent=None).count()
